@@ -13,6 +13,7 @@ import jakarta.persistence.Table;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.UUID;
 
 /** Aggregate Root: registro formal de un lote afectado por una excursion y la decision tomada sobre el. */
 @Entity
@@ -20,30 +21,30 @@ import java.time.temporal.ChronoUnit;
 public class NonConformity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     @Column(name = "excursion_id", nullable = false)
-    private Long excursionId;
+    private UUID excursionId;
 
     @Column(name = "organization_id", nullable = false)
-    private Long organizationId;
+    private UUID organizationId;
 
     @Embedded
     private Batch batch;
 
-    @Column(nullable = false, length = 80)
+    @Column(nullable = false, length = 60)
     private String classification;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 12)
+    @Column(nullable = false, length = 20)
     private Disposition disposition;
 
     @Column(length = 1000)
     private String justification;
 
     @Column(name = "registered_by", nullable = false)
-    private Long registeredBy;
+    private UUID registeredBy;
 
     @Column(name = "registered_at", nullable = false)
     private Instant registeredAt;
@@ -55,8 +56,8 @@ public class NonConformity {
     }
 
     /** Registra el lote en cuarentena hasta que el Encargado de Control de Calidad decida su destino. */
-    public static NonConformity register(Long excursionId, Long organizationId, Batch batch, String classification,
-                                         Long registeredBy, Instant now) {
+    public static NonConformity register(UUID excursionId, UUID organizationId, Batch batch, String classification,
+                                         UUID registeredBy, Instant now) {
         if (classification == null || classification.isBlank()) {
             throw new IllegalArgumentException("La clasificacion de la no conformidad es obligatoria");
         }
@@ -115,15 +116,15 @@ public class NonConformity {
         }
     }
 
-    public Long getId() {
+    public UUID getId() {
         return id;
     }
 
-    public Long getExcursionId() {
+    public UUID getExcursionId() {
         return excursionId;
     }
 
-    public Long getOrganizationId() {
+    public UUID getOrganizationId() {
         return organizationId;
     }
 
@@ -143,7 +144,7 @@ public class NonConformity {
         return justification;
     }
 
-    public Long getRegisteredBy() {
+    public UUID getRegisteredBy() {
         return registeredBy;
     }
 

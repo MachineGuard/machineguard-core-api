@@ -14,6 +14,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Transactional(readOnly = true)
@@ -44,7 +45,7 @@ public class GetMeasurementHistoryQueryService {
     }
 
     /** Historial de la zona y variable de una excursion, entre su inicio y su cierre (o ahora si sigue abierta). */
-    public List<MeasurementPoint> handleForExcursion(Long organizationId, Long excursionId) {
+    public List<MeasurementPoint> handleForExcursion(UUID organizationId, UUID excursionId) {
         Excursion e = excursions.findByIdAndOrganizationId(excursionId, organizationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Excursion " + excursionId + " no encontrada"));
         Instant to = e.getEndedAt() != null ? e.getEndedAt() : clock.instant();

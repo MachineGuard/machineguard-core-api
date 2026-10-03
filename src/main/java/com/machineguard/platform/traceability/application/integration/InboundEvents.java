@@ -3,6 +3,7 @@ package com.machineguard.platform.traceability.application.integration;
 import com.machineguard.platform.traceability.domain.model.EnvironmentalVariable;
 
 import java.time.Instant;
+import java.util.UUID;
 
 /**
  * Eventos que Traceability & Quality consume de otros Bounded Contexts. Los publica quien los origina con
@@ -14,13 +15,13 @@ public final class InboundEvents {
     }
 
     /** Environmental Monitoring: una medicion supero un Threshold. */
-    public record DeviationDetected(Long organizationId, Long monitoringZoneId, Long monitoringPointId,
+    public record DeviationDetected(UUID organizationId, UUID monitoringZoneId, UUID monitoringPointId,
                                     EnvironmentalVariable environmentalVariable, double measuredValue,
                                     double thresholdValue, Instant detectedAt) {
     }
 
     /** Environmental Monitoring: las mediciones de la zona volvieron a su Safe Range. */
-    public record SafeRangeRestored(Long organizationId, Long monitoringZoneId,
+    public record SafeRangeRestored(UUID organizationId, UUID monitoringZoneId,
                                     EnvironmentalVariable environmentalVariable, Instant restoredAt) {
     }
 
@@ -28,7 +29,7 @@ public final class InboundEvents {
      * Alert and Incident Management: el incidente se resolvio y se registro la accion correctiva.
      * environmentalVariable puede ser null si el incidente cubre toda la zona.
      */
-    public record IncidentResolved(Long organizationId, Long incidentId, Long monitoringZoneId,
+    public record IncidentResolved(UUID organizationId, UUID incidentId, UUID monitoringZoneId,
                                    EnvironmentalVariable environmentalVariable, String correctiveAction,
                                    Instant resolvedAt) {
     }

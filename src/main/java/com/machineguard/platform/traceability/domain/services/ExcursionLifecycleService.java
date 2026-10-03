@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 /** Decide si una desviacion inicia una excursion nueva o prolonga la que ya esta abierta. */
 @Component
@@ -20,12 +21,12 @@ public class ExcursionLifecycleService {
         this.excursions = excursions;
     }
 
-    public Optional<Excursion> findOpen(Long organizationId, Long zoneId, EnvironmentalVariable variable) {
+    public Optional<Excursion> findOpen(UUID organizationId, UUID zoneId, EnvironmentalVariable variable) {
         return excursions.findByOrganizationIdAndMonitoringZoneIdAndEnvironmentalVariableAndStatus(
                 organizationId, zoneId, variable, ExcursionStatus.ONGOING);
     }
 
-    public List<Excursion> findOpenInZone(Long organizationId, Long zoneId, EnvironmentalVariable variableOrNull) {
+    public List<Excursion> findOpenInZone(UUID organizationId, UUID zoneId, EnvironmentalVariable variableOrNull) {
         if (variableOrNull != null) {
             return findOpen(organizationId, zoneId, variableOrNull).stream().toList();
         }

@@ -1,4 +1,6 @@
 package com.machineguard.platform.traceability.domain.queries;
 
-public record GetTraceabilityReportQuery(Long organizationId, Long reportId) {
+import java.util.UUID;
+
+public record GetTraceabilityReportQuery(UUID organizationId, UUID reportId) {
 }

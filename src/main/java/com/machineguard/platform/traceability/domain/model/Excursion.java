@@ -13,6 +13,7 @@ import jakarta.persistence.Table;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.UUID;
 
 /** Aggregate Root: periodo continuo en que una zona permanecio fuera de su Safe Range. */
 @Entity
@@ -20,17 +21,17 @@ import java.time.temporal.ChronoUnit;
 public class Excursion {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     @Column(name = "organization_id", nullable = false)
-    private Long organizationId;
+    private UUID organizationId;
 
     @Column(name = "monitoring_zone_id", nullable = false)
-    private Long monitoringZoneId;
+    private UUID monitoringZoneId;
 
     @Column(name = "monitoring_point_id")
-    private Long monitoringPointId;
+    private UUID monitoringPointId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "environmental_variable", nullable = false, length = 20)
@@ -49,15 +50,15 @@ public class Excursion {
     private double thresholdValue;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
+    @Column(nullable = false, length = 20)
     private ExcursionSeverity severity;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
+    @Column(nullable = false, length = 20)
     private ExcursionStatus status;
 
     @Column(name = "incident_id")
-    private Long incidentId;
+    private UUID incidentId;
 
     @Column(name = "corrective_action", length = 1000)
     private String correctiveAction;
@@ -65,10 +66,13 @@ public class Excursion {
     @Column(name = "open_key", length = 100)
     private String openKey;
 
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+
     protected Excursion() {
     }
 
-    public static Excursion start(Long organizationId, Long monitoringZoneId, Long monitoringPointId,
+    public static Excursion start(UUID organizationId, UUID monitoringZoneId, UUID monitoringPointId,
                                   EnvironmentalVariable variable, double detectedValue, double thresholdValue,
                                   Instant detectedAt) {
         Excursion e = new Excursion();
@@ -82,10 +86,11 @@ public class Excursion {
         e.severity = ExcursionSeverity.classify(e.magnitude(), Duration.ZERO);
         e.status = ExcursionStatus.ONGOING;
         e.openKey = openKeyOf(organizationId, monitoringZoneId, variable);
+        e.createdAt = Instant.now().truncatedTo(ChronoUnit.MILLIS);
         return e;
     }
 
-    public static String openKeyOf(Long organizationId, Long monitoringZoneId, EnvironmentalVariable variable) {
+    public static String openKeyOf(UUID organizationId, UUID monitoringZoneId, EnvironmentalVariable variable) {
         return organizationId + ":" + monitoringZoneId + ":" + variable;
     }
 
@@ -115,7 +120,7 @@ public class Excursion {
     }
 
     /** Vincula el incidente resuelto; el primer vinculo prevalece. Devuelve true si se vinculo ahora. */
-    public boolean linkIncident(Long incidentId, String correctiveAction) {
+    public boolean linkIncident(UUID incidentId, String correctiveAction) {
         if (this.incidentId != null) {
             return false;
         }
@@ -146,19 +151,19 @@ public class Excursion {
         }
     }
 
-    public Long getId() {
+    public UUID getId() {
         return id;
     }
 
-    public Long getOrganizationId() {
+    public UUID getOrganizationId() {
         return organizationId;
     }
 
-    public Long getMonitoringZoneId() {
+    public UUID getMonitoringZoneId() {
         return monitoringZoneId;
     }
 
-    public Long getMonitoringPointId() {
+    public UUID getMonitoringPointId() {
         return monitoringPointId;
     }
 
@@ -190,7 +195,7 @@ public class Excursion {
         return status;
     }
 
-    public Long getIncidentId() {
+    public UUID getIncidentId() {
         return incidentId;
     }
 

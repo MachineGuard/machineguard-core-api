@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.UUID;
 
 import static com.machineguard.platform.traceability.interfaces.rest.TraceabilityHeaders.ORGANIZATION;
 import static com.machineguard.platform.traceability.interfaces.rest.TraceabilityHeaders.USER;
@@ -47,7 +48,7 @@ public class TraceabilityReportController {
     @PostMapping
     @Operation(summary = "Generar y sellar un reporte de trazabilidad para una zona y un periodo")
     public ResponseEntity<TraceabilityReportResource> generate(
-            @RequestHeader(ORGANIZATION) Long organizationId, @RequestHeader(USER) Long userId,
+            @RequestHeader(ORGANIZATION) UUID organizationId, @RequestHeader(USER) UUID userId,
             @Valid @RequestBody GenerateTraceabilityReportResource body) {
         var report = commands.handle(new GenerateTraceabilityReportCommand(organizationId, body.monitoringZoneId(),
                 body.periodStart(), body.periodEnd(), userId));
@@ -56,22 +57,22 @@ public class TraceabilityReportController {
 
     @GetMapping
     @Operation(summary = "Listar los reportes de la organizacion (sin contenido)")
-    public List<TraceabilityReportResource> list(@RequestHeader(ORGANIZATION) Long organizationId,
-                                                 @RequestParam(required = false) Long monitoringZoneId) {
+    public List<TraceabilityReportResource> list(@RequestHeader(ORGANIZATION) UUID organizationId,
+                                                 @RequestParam(required = false) UUID monitoringZoneId) {
         return queries.list(organizationId, monitoringZoneId).stream().map(assemblers::reportSummary).toList();
     }
 
     @GetMapping("/{reportId}")
     @Operation(summary = "Consultar un reporte con su contenido y la verificacion de integridad")
-    public TraceabilityReportResource get(@RequestHeader(ORGANIZATION) Long organizationId,
-                                          @PathVariable Long reportId) {
+    public TraceabilityReportResource get(@RequestHeader(ORGANIZATION) UUID organizationId,
+                                          @PathVariable UUID reportId) {
         return assemblers.reportWithContent(queries.handle(new GetTraceabilityReportQuery(organizationId, reportId)));
     }
 
     @GetMapping("/{reportId}/download")
     @Operation(summary = "Descargar el reporte como archivo JSON para el ERP del cliente")
-    public ResponseEntity<TraceabilityReportResource> download(@RequestHeader(ORGANIZATION) Long organizationId,
-                                                               @PathVariable Long reportId) {
+    public ResponseEntity<TraceabilityReportResource> download(@RequestHeader(ORGANIZATION) UUID organizationId,
+                                                               @PathVariable UUID reportId) {
         var resource = assemblers.reportWithContent(queries.handle(new GetTraceabilityReportQuery(organizationId, reportId)));
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,

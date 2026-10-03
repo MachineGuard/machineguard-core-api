@@ -11,23 +11,24 @@ import org.springframework.data.repository.query.Param;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
-public interface ExcursionRepository extends JpaRepository<Excursion, Long>, JpaSpecificationExecutor<Excursion> {
+public interface ExcursionRepository extends JpaRepository<Excursion, UUID>, JpaSpecificationExecutor<Excursion> {
 
-    Optional<Excursion> findByIdAndOrganizationId(Long id, Long organizationId);
+    Optional<Excursion> findByIdAndOrganizationId(UUID id, UUID organizationId);
 
     Optional<Excursion> findByOrganizationIdAndMonitoringZoneIdAndEnvironmentalVariableAndStatus(
-            Long organizationId, Long monitoringZoneId, EnvironmentalVariable variable, ExcursionStatus status);
+            UUID organizationId, UUID monitoringZoneId, EnvironmentalVariable variable, ExcursionStatus status);
 
     List<Excursion> findByOrganizationIdAndMonitoringZoneIdAndStatus(
-            Long organizationId, Long monitoringZoneId, ExcursionStatus status);
+            UUID organizationId, UUID monitoringZoneId, ExcursionStatus status);
 
-    List<Excursion> findByOrganizationIdAndStatusOrderByStartedAtDesc(Long organizationId, ExcursionStatus status);
+    List<Excursion> findByOrganizationIdAndStatusOrderByStartedAtDesc(UUID organizationId, ExcursionStatus status);
 
-    Optional<Excursion> findFirstByOrganizationIdAndIncidentId(Long organizationId, Long incidentId);
+    Optional<Excursion> findFirstByOrganizationIdAndIncidentId(UUID organizationId, UUID incidentId);
 
     List<Excursion> findByOrganizationIdAndMonitoringZoneIdAndStatusAndIncidentIdIsNullOrderByEndedAtDesc(
-            Long organizationId, Long monitoringZoneId, ExcursionStatus status);
+            UUID organizationId, UUID monitoringZoneId, ExcursionStatus status);
 
     /** Excursiones cerradas de una zona que se solapan con el periodo [from, to]. */
     @Query("""
@@ -37,7 +38,7 @@ public interface ExcursionRepository extends JpaRepository<Excursion, Long>, Jpa
               and e.startedAt <= :to and e.endedAt >= :from
             order by e.startedAt
             """)
-    List<Excursion> findClosedOverlapping(@Param("organizationId") Long organizationId, @Param("zoneId") Long zoneId,
+    List<Excursion> findClosedOverlapping(@Param("organizationId") UUID organizationId, @Param("zoneId") UUID zoneId,
                                           @Param("from") Instant from, @Param("to") Instant to);
 
     /** Excursiones cerradas antes del corte que no forman parte de ningun reporte sellado. */

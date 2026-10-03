@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -27,8 +28,12 @@ class DomainModelTest {
 
     private static final Instant T0 = Instant.parse("2026-10-01T10:00:00Z");
 
+    private static UUID id(long n) {
+        return new UUID(0, n);
+    }
+
     private Excursion highTemperatureExcursion() {
-        return Excursion.start(1L, 10L, 100L, EnvironmentalVariable.TEMPERATURE, 8.5, 8.0, T0);
+        return Excursion.start(id(1), id(10), id(100), EnvironmentalVariable.TEMPERATURE, 8.5, 8.0, T0);
     }
 
     @Test
@@ -42,7 +47,7 @@ class DomainModelTest {
 
     @Test
     void peakForLowBreachIsTheLowestValue() {
-        Excursion e = Excursion.start(1L, 10L, 100L, EnvironmentalVariable.TEMPERATURE, 1.5, 2.0, T0);
+        Excursion e = Excursion.start(id(1), id(10), id(100), EnvironmentalVariable.TEMPERATURE, 1.5, 2.0, T0);
         e.registerDeviation(-1.0, T0.plusSeconds(30));
         e.registerDeviation(0.5, T0.plusSeconds(60));
         assertEquals(-1.0, e.getPeakValue());
@@ -76,9 +81,9 @@ class DomainModelTest {
     @Test
     void firstLinkedIncidentPrevails() {
         Excursion e = highTemperatureExcursion();
-        assertTrue(e.linkIncident(7L, "Se reparo la camara"));
-        assertFalse(e.linkIncident(8L, "otra"));
-        assertEquals(7L, e.getIncidentId());
+        assertTrue(e.linkIncident(id(7), "Se reparo la camara"));
+        assertFalse(e.linkIncident(id(8), "otra"));
+        assertEquals(id(7), e.getIncidentId());
         assertEquals("Se reparo la camara", e.getCorrectiveAction());
     }
 
@@ -105,8 +110,8 @@ class DomainModelTest {
 
     @Test
     void nonConformityStartsQuarantinedAndReleaseRequiresJustification() {
-        NonConformity nc = NonConformity.register(1L, 1L, new Batch("L-001", "Vacuna", new BigDecimal("50"), T0),
-                "Cadena de frio", 5L, T0);
+        NonConformity nc = NonConformity.register(id(1), id(1), new Batch("L-001", "Vacuna", new BigDecimal("50"), T0),
+                "Cadena de frio", id(5), T0);
         assertEquals(Disposition.QUARANTINED, nc.getDisposition());
         assertThrows(DomainRuleViolationException.class, () -> nc.release("  ", T0));
         assertFalse(nc.isResolved());
@@ -126,16 +131,16 @@ class DomainModelTest {
     @Test
     void reportCannotIncludeOngoingExcursionsAndIsImmutableOnceSealed() {
         ReportPeriod period = new ReportPeriod(T0.minus(Duration.ofDays(1)), T0);
-        TraceabilityReport report = TraceabilityReport.generate(1L, 10L, period, 5L, T0);
+        TraceabilityReport report = TraceabilityReport.generate(id(1), id(10), period, id(5), T0);
         assertThrows(DomainRuleViolationException.class, () -> report.includeExcursion(highTemperatureExcursion()));
 
         report.includeMeasurementHistory(42);
-        report.seal("{\"excursions\":[]}");
+        report.seal("{\"excursions\":[]}", T0);
         assertTrue(report.isSealed());
         assertTrue(report.verifyIntegrity());
         assertEquals(64, report.getChecksum().length());
         assertThrows(DomainRuleViolationException.class, () -> report.includeMeasurementHistory(1));
-        assertThrows(DomainRuleViolationException.class, () -> report.seal("{}"));
+        assertThrows(DomainRuleViolationException.class, () -> report.seal("{}", T0));
     }
 
     @Test

@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Transactional(readOnly = true)
@@ -24,7 +25,7 @@ public class GetTraceabilityReportQueryService {
                 .orElseThrow(() -> new ResourceNotFoundException("Reporte " + query.reportId() + " no encontrado"));
     }
 
-    public List<TraceabilityReport> list(Long organizationId, Long monitoringZoneId) {
+    public List<TraceabilityReport> list(UUID organizationId, UUID monitoringZoneId) {
         return monitoringZoneId == null
                 ? reports.findByOrganizationIdOrderByGeneratedAtDesc(organizationId)
                 : reports.findByOrganizationIdAndMonitoringZoneIdOrderByGeneratedAtDesc(organizationId, monitoringZoneId);

@@ -4,6 +4,7 @@ import com.machineguard.platform.traceability.domain.model.EnvironmentalVariable
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Puerto hacia el Measurement History conservado por Environmental Monitoring
@@ -11,10 +12,10 @@ import java.util.List;
  */
 public interface MeasurementHistoryProvider {
 
-    List<MeasurementPoint> findByZone(Long organizationId, Long monitoringZoneId, EnvironmentalVariable variable,
+    List<MeasurementPoint> findByZone(UUID organizationId, UUID monitoringZoneId, EnvironmentalVariable variable,
                                       Instant from, Instant to);
 
-    record MeasurementPoint(Long monitoringPointId, EnvironmentalVariable environmentalVariable, double value,
+    record MeasurementPoint(UUID monitoringPointId, EnvironmentalVariable environmentalVariable, double value,
                             Instant recordedAt) {
     }
 }

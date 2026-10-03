@@ -12,6 +12,7 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Lee el Measurement History de la tabla de Environmental Monitoring. Contrato esperado de la tabla
@@ -30,7 +31,7 @@ public class JdbcMeasurementHistoryProvider implements MeasurementHistoryProvide
     }
 
     @Override
-    public List<MeasurementPoint> findByZone(Long organizationId, Long monitoringZoneId,
+    public List<MeasurementPoint> findByZone(UUID organizationId, UUID monitoringZoneId,
                                              EnvironmentalVariable variable, Instant from, Instant to) {
         StringBuilder sql = new StringBuilder(
                 "SELECT monitoring_point_id, environmental_variable, measured_value, recorded_at FROM " + table
@@ -43,7 +44,7 @@ public class JdbcMeasurementHistoryProvider implements MeasurementHistoryProvide
         sql.append(" ORDER BY recorded_at, monitoring_point_id");
         try {
             return jdbc.query(sql.toString(), (rs, i) -> new MeasurementPoint(
-                    rs.getObject("monitoring_point_id", Long.class),
+                    rs.getObject("monitoring_point_id", UUID.class),
                     EnvironmentalVariable.valueOf(rs.getString("environmental_variable")),
                     rs.getDouble("measured_value"),
                     rs.getTimestamp("recorded_at").toInstant()), args.toArray());

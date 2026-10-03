@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 /** Assemblers: entidades de dominio a Resources REST. */
 @Component
@@ -61,7 +62,7 @@ public class ResourceAssemblers {
         }
     }
 
-    public MeasurementHistoryResource measurementHistory(Long zoneId, Instant from, Instant to,
+    public MeasurementHistoryResource measurementHistory(UUID zoneId, Instant from, Instant to,
                                                          List<MeasurementPoint> points) {
         List<MeasurementResource> items = points.stream()
                 .map(p -> new MeasurementResource(p.monitoringPointId(), p.environmentalVariable().name(),

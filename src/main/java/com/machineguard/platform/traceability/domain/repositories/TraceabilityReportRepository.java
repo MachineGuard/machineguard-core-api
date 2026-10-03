@@ -5,13 +5,14 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
-public interface TraceabilityReportRepository extends JpaRepository<TraceabilityReport, Long> {
+public interface TraceabilityReportRepository extends JpaRepository<TraceabilityReport, UUID> {
 
-    Optional<TraceabilityReport> findByIdAndOrganizationId(Long id, Long organizationId);
+    Optional<TraceabilityReport> findByIdAndOrganizationId(UUID id, UUID organizationId);
 
-    List<TraceabilityReport> findByOrganizationIdOrderByGeneratedAtDesc(Long organizationId);
+    List<TraceabilityReport> findByOrganizationIdOrderByGeneratedAtDesc(UUID organizationId);
 
     List<TraceabilityReport> findByOrganizationIdAndMonitoringZoneIdOrderByGeneratedAtDesc(
-            Long organizationId, Long monitoringZoneId);
+            UUID organizationId, UUID monitoringZoneId);
 }

@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Aplica el Retention Period: depura las excursiones cerradas vencidas, salvo las que forman parte de un
@@ -46,7 +47,7 @@ public class RetentionPolicyService {
         if (expired.isEmpty()) {
             return 0;
         }
-        List<Long> ids = expired.stream().map(Excursion::getId).toList();
+        List<UUID> ids = expired.stream().map(Excursion::getId).toList();
         nonConformities.deleteByExcursionIdIn(ids);
         excursions.deleteAll(expired);
         log.info("Retention Period de {} meses: se depuraron {} excursiones", retention.months(), ids.size());

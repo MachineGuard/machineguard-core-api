@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Transactional(readOnly = true)
@@ -50,16 +51,16 @@ public class GetExcursionHistoryQueryService {
         return excursions.findAll(spec, Sort.by(Sort.Direction.DESC, "startedAt"));
     }
 
-    public List<Excursion> findOpen(Long organizationId) {
+    public List<Excursion> findOpen(UUID organizationId) {
         return excursions.findByOrganizationIdAndStatusOrderByStartedAtDesc(organizationId, ExcursionStatus.ONGOING);
     }
 
-    public Excursion getById(Long organizationId, Long excursionId) {
+    public Excursion getById(UUID organizationId, UUID excursionId) {
         return excursions.findByIdAndOrganizationId(excursionId, organizationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Excursion " + excursionId + " no encontrada"));
     }
 
-    public List<NonConformity> nonConformitiesOf(Long organizationId, Long excursionId) {
+    public List<NonConformity> nonConformitiesOf(UUID organizationId, UUID excursionId) {
         getById(organizationId, excursionId);
         return nonConformities.findByExcursionIdAndOrganizationIdOrderByRegisteredAtAsc(excursionId, organizationId);
     }

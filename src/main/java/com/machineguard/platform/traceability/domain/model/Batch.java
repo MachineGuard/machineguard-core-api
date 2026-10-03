@@ -9,13 +9,13 @@ import java.time.Instant;
 @Embeddable
 public class Batch {
 
-    @Column(name = "batch_code", nullable = false, length = 80)
+    @Column(name = "batch_code", nullable = false, length = 60)
     private String code;
 
-    @Column(name = "product_name", length = 200)
+    @Column(name = "product_name", length = 150)
     private String productName;
 
-    @Column(name = "quantity", precision = 14, scale = 3)
+    @Column(name = "quantity", precision = 10, scale = 2)
     private BigDecimal quantity;
 
     @Column(name = "stored_at")

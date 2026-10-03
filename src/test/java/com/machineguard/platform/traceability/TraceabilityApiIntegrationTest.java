@@ -27,6 +27,7 @@ import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -44,8 +45,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class TraceabilityApiIntegrationTest {
 
     static final Instant NOW = Instant.parse("2026-10-01T12:00:00Z");
-    static final Long ORG = 1L;
-    static final Long ZONE = 10L;
+    static final UUID ORG = uuid(1);
+    static final UUID OTHER_ORG = uuid(2);
+    static final UUID USER = uuid(5);
+    static final UUID ZONE = uuid(10);
+    static final UUID POINT = uuid(100);
+    static UUID uuid(long n) {
+        return new UUID(0, n);
+    }
+
     static final String BASE = "/api/v1/traceability";
 
     @TestConfiguration
@@ -67,8 +75,8 @@ class TraceabilityApiIntegrationTest {
     void cleanDatabase() {
         jdbc.execute("DROP TABLE IF EXISTS measurements");
         jdbc.execute("""
-                CREATE TABLE measurements (organization_id BIGINT, monitoring_zone_id BIGINT,
-                  monitoring_point_id BIGINT, environmental_variable VARCHAR(20), measured_value DOUBLE PRECISION,
+                CREATE TABLE measurements (organization_id UUID, monitoring_zone_id UUID,
+                  monitoring_point_id UUID, environmental_variable VARCHAR(20), measured_value DOUBLE PRECISION,
                   recorded_at TIMESTAMP WITH TIME ZONE)""");
         jdbc.execute("DELETE FROM traceability_report_excursions");
         jdbc.execute("DELETE FROM traceability_reports");
@@ -76,8 +84,8 @@ class TraceabilityApiIntegrationTest {
         jdbc.execute("DELETE FROM excursions");
     }
 
-    private MockHttpServletRequestBuilder withIdentity(MockHttpServletRequestBuilder request, long org) {
-        return request.header("X-Organization-Id", org).header("X-User-Id", 5);
+    private MockHttpServletRequestBuilder withIdentity(MockHttpServletRequestBuilder request, UUID org) {
+        return request.header("X-Organization-Id", org).header("X-User-Id", USER);
     }
 
     private MockHttpServletRequestBuilder withIdentity(MockHttpServletRequestBuilder request) {
@@ -85,7 +93,7 @@ class TraceabilityApiIntegrationTest {
     }
 
     private void deviation(double value, Instant at) {
-        events.publishEvent(new DeviationDetected(ORG, ZONE, 100L, EnvironmentalVariable.TEMPERATURE, value, 8.0, at));
+        events.publishEvent(new DeviationDetected(ORG, ZONE, POINT, EnvironmentalVariable.TEMPERATURE, value, 8.0, at));
     }
 
     private JsonNode body(MvcResult result) throws Exception {
@@ -96,7 +104,7 @@ class TraceabilityApiIntegrationTest {
         return body(mvc.perform(withIdentity(get(BASE + "/excursions/open"))).andExpect(status().isOk()).andReturn());
     }
 
-    private long createClosedExcursion(Instant start, Instant end, Long incidentId) throws Exception {
+    private UUID createClosedExcursion(Instant start, Instant end, UUID incidentId) throws Exception {
         deviation(9.5, start);
         events.publishEvent(new SafeRangeRestored(ORG, ZONE, EnvironmentalVariable.TEMPERATURE, end));
         if (incidentId != null) {
@@ -104,11 +112,11 @@ class TraceabilityApiIntegrationTest {
                     "Se reemplazo el compresor", end.plusSeconds(60)));
         }
         JsonNode all = body(mvc.perform(withIdentity(get(BASE + "/excursions?status=CLOSED"))).andReturn());
-        return all.get(0).get("id").asLong();
+        return UUID.fromString(all.get(0).get("id").asText());
     }
 
     private void measurement(Instant at, double value) {
-        jdbc.update("INSERT INTO measurements VALUES (?,?,?,?,?,?)", ORG, ZONE, 100L, "TEMPERATURE", value,
+        jdbc.update("INSERT INTO measurements VALUES (?,?,?,?,?,?)", ORG, ZONE, POINT, "TEMPERATURE", value,
                 Timestamp.from(at));
     }
 
@@ -128,7 +136,7 @@ class TraceabilityApiIntegrationTest {
     @Test
     void incidentResolvedLinksCorrectiveActionAndClosesExcursionIdempotently() throws Exception {
         deviation(9.5, NOW.minusSeconds(1800));
-        IncidentResolved resolved = new IncidentResolved(ORG, 77L, ZONE, EnvironmentalVariable.TEMPERATURE,
+        IncidentResolved resolved = new IncidentResolved(ORG, uuid(77), ZONE, EnvironmentalVariable.TEMPERATURE,
                 "Se reemplazo el compresor", NOW.minusSeconds(600));
         events.publishEvent(resolved);
         events.publishEvent(resolved);
@@ -136,39 +144,39 @@ class TraceabilityApiIntegrationTest {
         assertEquals(0, openExcursions().size());
         JsonNode closed = body(mvc.perform(withIdentity(get(BASE + "/excursions?status=CLOSED"))).andReturn());
         assertEquals(1, closed.size());
-        assertEquals(77, closed.get(0).get("incidentId").asLong());
+        assertEquals(uuid(77).toString(), closed.get(0).get("incidentId").asText());
         assertEquals("Se reemplazo el compresor", closed.get(0).get("correctiveAction").asText());
         assertEquals(1200, closed.get(0).get("durationSeconds").asLong());
     }
 
     @Test
     void incidentResolvedAfterSafeRangeRestoredLinksTheClosedExcursion() throws Exception {
-        long id = createClosedExcursion(NOW.minusSeconds(3600), NOW.minusSeconds(3000), null);
-        events.publishEvent(new IncidentResolved(ORG, 88L, ZONE, null, "Se ajusto el termostato", NOW.minusSeconds(100)));
+        UUID id = createClosedExcursion(NOW.minusSeconds(3600), NOW.minusSeconds(3000), null);
+        events.publishEvent(new IncidentResolved(ORG, uuid(88), ZONE, null, "Se ajusto el termostato", NOW.minusSeconds(100)));
 
         mvc.perform(withIdentity(get(BASE + "/excursions/" + id)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.excursion.incidentId").value(88));
+                .andExpect(jsonPath("$.excursion.incidentId").value(uuid(88).toString()));
     }
 
     @Test
     void historyFiltersByZoneAndPeriodAndIsolatesOrganizations() throws Exception {
         createClosedExcursion(NOW.minusSeconds(7200), NOW.minusSeconds(6000), null);
 
-        mvc.perform(withIdentity(get(BASE + "/excursions?monitoringZoneId=10")))
+        mvc.perform(withIdentity(get(BASE + "/excursions?monitoringZoneId=" + ZONE)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
-        mvc.perform(withIdentity(get(BASE + "/excursions?monitoringZoneId=99")))
+        mvc.perform(withIdentity(get(BASE + "/excursions?monitoringZoneId=" + uuid(99))))
                 .andExpect(jsonPath("$.length()").value(0));
         mvc.perform(withIdentity(get(BASE + "/excursions?from=" + NOW.minusSeconds(60))))
                 .andExpect(jsonPath("$.length()").value(0));
-        mvc.perform(withIdentity(get(BASE + "/excursions"), 2L))
+        mvc.perform(withIdentity(get(BASE + "/excursions"), OTHER_ORG))
                 .andExpect(jsonPath("$.length()").value(0));
         mvc.perform(get(BASE + "/excursions")).andExpect(status().isBadRequest());
     }
 
     @Test
     void nonConformityLifecycleEnforcesBusinessRules() throws Exception {
-        long excursionId = createClosedExcursion(NOW.minusSeconds(7200), NOW.minusSeconds(6000), null);
+        UUID excursionId = createClosedExcursion(NOW.minusSeconds(7200), NOW.minusSeconds(6000), null);
         String create = """
                 {"batchCode":"L-2026-001","productName":"Insulina","quantity":120,"classification":"Cadena de frio"}""";
 
@@ -176,9 +184,9 @@ class TraceabilityApiIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON).content(create))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.disposition").value("QUARANTINED"))
-                .andExpect(jsonPath("$.registeredBy").value(5))
+                .andExpect(jsonPath("$.registeredBy").value(USER.toString()))
                 .andReturn();
-        long ncId = body(created).get("id").asLong();
+        String ncId = body(created).get("id").asText();
 
         String release = "{\"disposition\":\"RELEASED\"}";
         mvc.perform(withIdentity(patch(BASE + "/non-conformities/" + ncId + "/disposition"))
@@ -202,12 +210,12 @@ class TraceabilityApiIntegrationTest {
 
     @Test
     void nonConformityRequiresExistingExcursionOfTheSameOrganizationAndValidBody() throws Exception {
-        long excursionId = createClosedExcursion(NOW.minusSeconds(7200), NOW.minusSeconds(6000), null);
+        UUID excursionId = createClosedExcursion(NOW.minusSeconds(7200), NOW.minusSeconds(6000), null);
         String create = "{\"batchCode\":\"L1\",\"classification\":\"x\"}";
 
-        mvc.perform(withIdentity(post(BASE + "/excursions/9999/non-conformities"))
+        mvc.perform(withIdentity(post(BASE + "/excursions/" + uuid(9999) + "/non-conformities"))
                 .contentType(MediaType.APPLICATION_JSON).content(create)).andExpect(status().isNotFound());
-        mvc.perform(withIdentity(post(BASE + "/excursions/" + excursionId + "/non-conformities"), 2L)
+        mvc.perform(withIdentity(post(BASE + "/excursions/" + excursionId + "/non-conformities"), OTHER_ORG)
                 .contentType(MediaType.APPLICATION_JSON).content(create)).andExpect(status().isNotFound());
         mvc.perform(withIdentity(post(BASE + "/excursions/" + excursionId + "/non-conformities"))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"classification\":\"x\"}"))
@@ -216,7 +224,7 @@ class TraceabilityApiIntegrationTest {
 
     @Test
     void generatesSealedReportWithEvidenceAndVerifiableIntegrity() throws Exception {
-        long closedId = createClosedExcursion(NOW.minusSeconds(7200), NOW.minusSeconds(6000), 55L);
+        UUID closedId = createClosedExcursion(NOW.minusSeconds(7200), NOW.minusSeconds(6000), uuid(55));
         deviation(12.0, NOW.minusSeconds(300)); // sigue abierta: no entra como evidencia cerrada
         measurement(NOW.minusSeconds(7000), 9.5);
         measurement(NOW.minusSeconds(6500), 10.1);
@@ -225,7 +233,7 @@ class TraceabilityApiIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"batchCode\":\"L-9\",\"classification\":\"Cadena de frio\"}")).andExpect(status().isCreated());
 
-        String request = "{\"monitoringZoneId\":10,\"periodStart\":\"" + NOW.minus(java.time.Duration.ofDays(1))
+        String request = "{\"monitoringZoneId\":\"" + ZONE + "\",\"periodStart\":\"" + NOW.minus(java.time.Duration.ofDays(1))
                 + "\",\"periodEnd\":\"" + NOW + "\"}";
         MvcResult result = mvc.perform(withIdentity(post(BASE + "/reports"))
                         .contentType(MediaType.APPLICATION_JSON).content(request))
@@ -235,15 +243,15 @@ class TraceabilityApiIntegrationTest {
                 .andExpect(jsonPath("$.measurementCount").value(2))
                 .andExpect(jsonPath("$.integrityVerified").value(true))
                 .andExpect(jsonPath("$.content.ongoingExcursionsExcluded").value(1))
-                .andExpect(jsonPath("$.content.correctiveActions[0].incidentId").value(55))
+                .andExpect(jsonPath("$.content.correctiveActions[0].incidentId").value(uuid(55).toString()))
                 .andExpect(jsonPath("$.content.excursions[0].nonConformities[0].batchCode").value("L-9"))
                 .andReturn();
         JsonNode report = body(result);
         assertEquals(64, report.get("checksum").asText().length());
-        assertEquals(closedId, report.get("excursionIds").get(0).asLong());
+        assertEquals(closedId.toString(), report.get("excursionIds").get(0).asText());
         assertEquals(2, report.get("content").get("measurementHistory").size());
 
-        long reportId = report.get("id").asLong();
+        String reportId = report.get("id").asText();
         MvcResult fetched = mvc.perform(withIdentity(get(BASE + "/reports/" + reportId)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.integrityVerified").value(true)).andReturn();
         assertEquals(report.get("checksum").asText(), body(fetched).get("checksum").asText());
@@ -254,7 +262,7 @@ class TraceabilityApiIntegrationTest {
         mvc.perform(withIdentity(get(BASE + "/reports/" + reportId + "/download")))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("attachment")));
-        mvc.perform(withIdentity(get(BASE + "/reports/" + reportId), 2L)).andExpect(status().isNotFound());
+        mvc.perform(withIdentity(get(BASE + "/reports/" + reportId), OTHER_ORG)).andExpect(status().isNotFound());
 
         // un reporte sellado no cambia aunque la no conformidad se modifique despues
         jdbc.update("UPDATE excursions SET peak_value = 99 WHERE id = ?", closedId);
@@ -264,10 +272,10 @@ class TraceabilityApiIntegrationTest {
     @Test
     void tamperedReportFailsIntegrityVerification() throws Exception {
         createClosedExcursion(NOW.minusSeconds(7200), NOW.minusSeconds(6000), null);
-        String request = "{\"monitoringZoneId\":10,\"periodStart\":\"" + NOW.minus(java.time.Duration.ofDays(1))
+        String request = "{\"monitoringZoneId\":\"" + ZONE + "\",\"periodStart\":\"" + NOW.minus(java.time.Duration.ofDays(1))
                 + "\",\"periodEnd\":\"" + NOW + "\"}";
-        long reportId = body(mvc.perform(withIdentity(post(BASE + "/reports"))
-                .contentType(MediaType.APPLICATION_JSON).content(request)).andReturn()).get("id").asLong();
+        String reportId = body(mvc.perform(withIdentity(post(BASE + "/reports"))
+                .contentType(MediaType.APPLICATION_JSON).content(request)).andReturn()).get("id").asText();
 
         jdbc.update("UPDATE traceability_reports SET measurement_count = 999 WHERE id = ?", reportId);
         mvc.perform(withIdentity(get(BASE + "/reports/" + reportId))).andExpect(jsonPath("$.integrityVerified").value(false));
@@ -275,13 +283,13 @@ class TraceabilityApiIntegrationTest {
 
     @Test
     void reportRequestValidation() throws Exception {
-        String future = "{\"monitoringZoneId\":10,\"periodStart\":\"" + NOW + "\",\"periodEnd\":\""
+        String future = "{\"monitoringZoneId\":\"" + ZONE + "\",\"periodStart\":\"" + NOW + "\",\"periodEnd\":\""
                 + NOW.plusSeconds(3600) + "\"}";
-        String inverted = "{\"monitoringZoneId\":10,\"periodStart\":\"" + NOW + "\",\"periodEnd\":\""
+        String inverted = "{\"monitoringZoneId\":\"" + ZONE + "\",\"periodStart\":\"" + NOW + "\",\"periodEnd\":\""
                 + NOW.minusSeconds(3600) + "\"}";
-        String tooLong = "{\"monitoringZoneId\":10,\"periodStart\":\"" + NOW.minus(java.time.Duration.ofDays(500))
+        String tooLong = "{\"monitoringZoneId\":\"" + ZONE + "\",\"periodStart\":\"" + NOW.minus(java.time.Duration.ofDays(500))
                 + "\",\"periodEnd\":\"" + NOW + "\"}";
-        for (String bad : new String[]{future, inverted, tooLong, "{\"monitoringZoneId\":10}"}) {
+        for (String bad : new String[]{future, inverted, tooLong, "{\"monitoringZoneId\":\"" + ZONE + "\"}"}) {
             mvc.perform(withIdentity(post(BASE + "/reports")).contentType(MediaType.APPLICATION_JSON).content(bad))
                     .andExpect(status().isBadRequest());
         }
@@ -290,7 +298,7 @@ class TraceabilityApiIntegrationTest {
     @Test
     void reportReturns503WhenMeasurementHistoryIsUnavailable() throws Exception {
         jdbc.execute("DROP TABLE measurements");
-        String request = "{\"monitoringZoneId\":10,\"periodStart\":\"" + NOW.minus(java.time.Duration.ofDays(1))
+        String request = "{\"monitoringZoneId\":\"" + ZONE + "\",\"periodStart\":\"" + NOW.minus(java.time.Duration.ofDays(1))
                 + "\",\"periodEnd\":\"" + NOW + "\"}";
         mvc.perform(withIdentity(post(BASE + "/reports")).contentType(MediaType.APPLICATION_JSON).content(request))
                 .andExpect(status().isServiceUnavailable());
@@ -298,17 +306,17 @@ class TraceabilityApiIntegrationTest {
 
     @Test
     void measurementHistoryByZoneAndByExcursion() throws Exception {
-        long excursionId = createClosedExcursion(NOW.minusSeconds(7200), NOW.minusSeconds(6000), null);
+        UUID excursionId = createClosedExcursion(NOW.minusSeconds(7200), NOW.minusSeconds(6000), null);
         measurement(NOW.minusSeconds(7100), 9.0);
         measurement(NOW.minusSeconds(6500), 10.0);
         measurement(NOW.minusSeconds(3000), 5.0);
 
-        mvc.perform(withIdentity(get(BASE + "/measurement-history?monitoringZoneId=10&from="
+        mvc.perform(withIdentity(get(BASE + "/measurement-history?monitoringZoneId=" + ZONE + "&from="
                         + NOW.minusSeconds(8000) + "&to=" + NOW)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.count").value(3));
         mvc.perform(withIdentity(get(BASE + "/excursions/" + excursionId + "/measurement-history")))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.count").value(2));
-        mvc.perform(withIdentity(get(BASE + "/measurement-history?monitoringZoneId=10&from="
+        mvc.perform(withIdentity(get(BASE + "/measurement-history?monitoringZoneId=" + ZONE + "&from="
                         + NOW + "&to=" + NOW.minusSeconds(10))))
                 .andExpect(status().isBadRequest());
     }
@@ -316,14 +324,14 @@ class TraceabilityApiIntegrationTest {
     @Test
     void retentionPurgesExpiredExcursionsExceptThoseInSealedReports() throws Exception {
         Instant old = NOW.minus(java.time.Duration.ofDays(500));
-        long inReport = createClosedExcursion(old, old.plusSeconds(600), null);
+        UUID inReport = createClosedExcursion(old, old.plusSeconds(600), null);
         deviation(9.0, old.plusSeconds(86_400));
         events.publishEvent(new SafeRangeRestored(ORG, ZONE, EnvironmentalVariable.TEMPERATURE, old.plusSeconds(87_000)));
         // un reporte sellado que cubre solo la primera excursion
-        String request = "{\"monitoringZoneId\":10,\"periodStart\":\"" + old.minusSeconds(60)
+        String request = "{\"monitoringZoneId\":\"" + ZONE + "\",\"periodStart\":\"" + old.minusSeconds(60)
                 + "\",\"periodEnd\":\"" + old.plusSeconds(3600) + "\"}";
         mvc.perform(withIdentity(post(BASE + "/reports")).contentType(MediaType.APPLICATION_JSON).content(request))
-                .andExpect(status().isCreated()).andExpect(jsonPath("$.excursionIds[0]").value(inReport));
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.excursionIds[0]").value(inReport.toString()));
         // una excursion reciente nunca se purga
         deviation(9.0, NOW.minusSeconds(100));
 
@@ -331,7 +339,7 @@ class TraceabilityApiIntegrationTest {
 
         JsonNode remaining = body(mvc.perform(withIdentity(get(BASE + "/excursions"))).andReturn());
         assertEquals(2, remaining.size());
-        assertTrue(remaining.findValues("id").stream().anyMatch(n -> n.asLong() == inReport));
+        assertTrue(remaining.findValues("id").stream().anyMatch(n -> n.asText().equals(inReport.toString())));
         assertFalse(remaining.findValues("status").stream().allMatch(n -> n.asText().equals("CLOSED")));
         assertNotNull(remaining.get(0));
     }

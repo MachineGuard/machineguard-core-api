@@ -30,6 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 import static com.machineguard.platform.traceability.interfaces.rest.TraceabilityHeaders.ORGANIZATION;
 import static com.machineguard.platform.traceability.interfaces.rest.TraceabilityHeaders.USER;
@@ -54,8 +55,8 @@ public class ExcursionController {
     @GetMapping("/excursions")
     @Operation(summary = "Historial de excursiones de la organizacion, filtrable por zona, periodo y estado")
     public List<ExcursionResource> history(
-            @RequestHeader(ORGANIZATION) Long organizationId,
-            @RequestParam(required = false) Long monitoringZoneId,
+            @RequestHeader(ORGANIZATION) UUID organizationId,
+            @RequestParam(required = false) UUID monitoringZoneId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
             @RequestParam(required = false) ExcursionStatus status) {
@@ -65,14 +66,14 @@ public class ExcursionController {
 
     @GetMapping("/excursions/open")
     @Operation(summary = "Excursiones abiertas en este momento")
-    public List<ExcursionResource> open(@RequestHeader(ORGANIZATION) Long organizationId) {
+    public List<ExcursionResource> open(@RequestHeader(ORGANIZATION) UUID organizationId) {
         return queries.findOpen(organizationId).stream().map(assemblers::excursion).toList();
     }
 
     @GetMapping("/excursions/{excursionId}")
     @Operation(summary = "Detalle de una excursion con sus no conformidades")
-    public ExcursionDetailResource detail(@RequestHeader(ORGANIZATION) Long organizationId,
-                                          @PathVariable Long excursionId) {
+    public ExcursionDetailResource detail(@RequestHeader(ORGANIZATION) UUID organizationId,
+                                          @PathVariable UUID excursionId) {
         return assemblers.excursionDetail(queries.getById(organizationId, excursionId),
                 queries.nonConformitiesOf(organizationId, excursionId));
     }
@@ -80,8 +81,8 @@ public class ExcursionController {
     @PostMapping("/excursions/{excursionId}/non-conformities")
     @Operation(summary = "Registrar una no conformidad sobre un lote afectado (queda en cuarentena)")
     public ResponseEntity<NonConformityResource> registerNonConformity(
-            @RequestHeader(ORGANIZATION) Long organizationId, @RequestHeader(USER) Long userId,
-            @PathVariable Long excursionId, @Valid @RequestBody RegisterNonConformityResource body) {
+            @RequestHeader(ORGANIZATION) UUID organizationId, @RequestHeader(USER) UUID userId,
+            @PathVariable UUID excursionId, @Valid @RequestBody RegisterNonConformityResource body) {
         var created = nonConformityCommands.handle(new RegisterNonConformityCommand(organizationId, excursionId,
                 body.batchCode(), body.productName(), body.quantity(), body.storedAt(), body.classification(), userId));
         return ResponseEntity.status(HttpStatus.CREATED).body(assemblers.nonConformity(created));
@@ -89,15 +90,15 @@ public class ExcursionController {
 
     @GetMapping("/excursions/{excursionId}/non-conformities")
     @Operation(summary = "No conformidades de una excursion")
-    public List<NonConformityResource> nonConformities(@RequestHeader(ORGANIZATION) Long organizationId,
-                                                       @PathVariable Long excursionId) {
+    public List<NonConformityResource> nonConformities(@RequestHeader(ORGANIZATION) UUID organizationId,
+                                                       @PathVariable UUID excursionId) {
         return queries.nonConformitiesOf(organizationId, excursionId).stream().map(assemblers::nonConformity).toList();
     }
 
     @PatchMapping("/non-conformities/{nonConformityId}/disposition")
     @Operation(summary = "Actualizar la disposicion del lote; liberar exige justificacion")
-    public NonConformityResource updateDisposition(@RequestHeader(ORGANIZATION) Long organizationId,
-                                                   @PathVariable Long nonConformityId,
+    public NonConformityResource updateDisposition(@RequestHeader(ORGANIZATION) UUID organizationId,
+                                                   @PathVariable UUID nonConformityId,
                                                    @Valid @RequestBody UpdateDispositionResource body) {
         var updated = nonConformityCommands.handle(
                 new ChangeDispositionCommand(organizationId, nonConformityId, body.disposition(), body.justification()));

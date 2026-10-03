@@ -23,6 +23,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.HexFormat;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Aggregate Root: documento de evidencia para auditorias. Se persiste siempre ya sellado y es inmutable:
@@ -34,14 +35,14 @@ import java.util.Set;
 public class TraceabilityReport {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     @Column(name = "organization_id", nullable = false)
-    private Long organizationId;
+    private UUID organizationId;
 
     @Column(name = "monitoring_zone_id", nullable = false)
-    private Long monitoringZoneId;
+    private UUID monitoringZoneId;
 
     @Column(name = "period_start", nullable = false)
     private Instant periodStart;
@@ -50,7 +51,7 @@ public class TraceabilityReport {
     private Instant periodEnd;
 
     @Column(name = "generated_by", nullable = false)
-    private Long generatedBy;
+    private UUID generatedBy;
 
     @Column(name = "generated_at", nullable = false)
     private Instant generatedAt;
@@ -62,8 +63,11 @@ public class TraceabilityReport {
     private int measurementCount;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
+    @Column(nullable = false, length = 20)
     private ReportStatus status;
+
+    @Column(name = "sealed_at")
+    private Instant sealedAt;
 
     @Column(length = 64)
     private String checksum;
@@ -74,13 +78,13 @@ public class TraceabilityReport {
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "traceability_report_excursions", joinColumns = @JoinColumn(name = "traceability_report_id"))
     @Column(name = "excursion_id")
-    private Set<Long> excursionIds = new LinkedHashSet<>();
+    private Set<UUID> excursionIds = new LinkedHashSet<>();
 
     protected TraceabilityReport() {
     }
 
-    public static TraceabilityReport generate(Long organizationId, Long monitoringZoneId, ReportPeriod period,
-                                              Long generatedBy, Instant now) {
+    public static TraceabilityReport generate(UUID organizationId, UUID monitoringZoneId, ReportPeriod period,
+                                              UUID generatedBy, Instant now) {
         TraceabilityReport r = new TraceabilityReport();
         r.organizationId = organizationId;
         r.monitoringZoneId = monitoringZoneId;
@@ -109,9 +113,10 @@ public class TraceabilityReport {
         this.measurementCount = measurementCount;
     }
 
-    public void seal(String content) {
+    public void seal(String content, Instant sealedAt) {
         requireDraft();
         this.content = content;
+        this.sealedAt = sealedAt.truncatedTo(ChronoUnit.MILLIS);
         this.status = ReportStatus.SEALED;
         this.checksum = computeChecksum();
     }
@@ -147,15 +152,15 @@ public class TraceabilityReport {
         }
     }
 
-    public Long getId() {
+    public UUID getId() {
         return id;
     }
 
-    public Long getOrganizationId() {
+    public UUID getOrganizationId() {
         return organizationId;
     }
 
-    public Long getMonitoringZoneId() {
+    public UUID getMonitoringZoneId() {
         return monitoringZoneId;
     }
 
@@ -167,7 +172,7 @@ public class TraceabilityReport {
         return periodEnd;
     }
 
-    public Long getGeneratedBy() {
+    public UUID getGeneratedBy() {
         return generatedBy;
     }
 
@@ -187,6 +192,10 @@ public class TraceabilityReport {
         return status;
     }
 
+    public Instant getSealedAt() {
+        return sealedAt;
+    }
+
     public String getChecksum() {
         return checksum;
     }
@@ -195,7 +204,7 @@ public class TraceabilityReport {
         return content;
     }
 
-    public Set<Long> getExcursionIds() {
+    public Set<UUID> getExcursionIds() {
         return Set.copyOf(excursionIds);
     }
 }

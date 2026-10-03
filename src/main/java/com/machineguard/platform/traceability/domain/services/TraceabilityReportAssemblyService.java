@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.UUID;
 
 /**
  * Consolida la evidencia de un periodo (Measurement History, excursiones cerradas y acciones correctivas)
@@ -32,12 +33,13 @@ public class TraceabilityReportAssemblyService {
                                 int ongoingExcursionsExcluded) {
         closedExcursions.forEach(report::includeExcursion);
         report.includeMeasurementHistory(measurements.size());
-        report.seal(serialize(buildContent(closedExcursions, nonConformities, measurements, ongoingExcursionsExcluded)));
+        report.seal(serialize(buildContent(closedExcursions, nonConformities, measurements, ongoingExcursionsExcluded)),
+                report.getGeneratedAt());
     }
 
     private Content buildContent(List<Excursion> excursions, List<NonConformity> nonConformities,
                                  List<MeasurementPoint> measurements, int ongoingExcluded) {
-        Map<Long, List<NonConformity>> byExcursion =
+        Map<UUID, List<NonConformity>> byExcursion =
                 nonConformities.stream().collect(Collectors.groupingBy(NonConformity::getExcursionId));
 
         List<ExcursionEntry> excursionEntries = excursions.stream()
@@ -75,19 +77,19 @@ public class TraceabilityReportAssemblyService {
                           int ongoingExcursionsExcluded, List<MeasurementEntry> measurementHistory) {
     }
 
-    public record ExcursionEntry(Long id, String environmentalVariable, Long monitoringPointId, Instant startedAt,
+    public record ExcursionEntry(UUID id, String environmentalVariable, UUID monitoringPointId, Instant startedAt,
                                  Instant endedAt, long durationSeconds, double peakValue, double thresholdValue,
-                                 String severity, Long incidentId, List<NonConformityEntry> nonConformities) {
+                                 String severity, UUID incidentId, List<NonConformityEntry> nonConformities) {
     }
 
     public record NonConformityEntry(String batchCode, String productName, String classification,
                                      String disposition, String justification) {
     }
 
-    public record CorrectiveActionEntry(Long excursionId, Long incidentId, String correctiveAction) {
+    public record CorrectiveActionEntry(UUID excursionId, UUID incidentId, String correctiveAction) {
     }
 
-    public record MeasurementEntry(Long monitoringPointId, String environmentalVariable, double value,
+    public record MeasurementEntry(UUID monitoringPointId, String environmentalVariable, double value,
                                    Instant recordedAt) {
     }
 }

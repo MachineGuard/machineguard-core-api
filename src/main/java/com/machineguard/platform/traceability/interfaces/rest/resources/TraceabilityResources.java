@@ -11,6 +11,7 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 /** Resources / DTOs de la Interface Layer de Traceability & Quality. */
 public final class TraceabilityResources {
@@ -18,47 +19,47 @@ public final class TraceabilityResources {
     private TraceabilityResources() {
     }
 
-    public record ExcursionResource(Long id, Long monitoringZoneId, Long monitoringPointId,
+    public record ExcursionResource(UUID id, UUID monitoringZoneId, UUID monitoringPointId,
                                     String environmentalVariable, Instant startedAt, Instant endedAt,
                                     long durationSeconds, double peakValue, double thresholdValue, String severity,
-                                    String status, Long incidentId, String correctiveAction) {
+                                    String status, UUID incidentId, String correctiveAction) {
     }
 
     public record ExcursionDetailResource(ExcursionResource excursion, List<NonConformityResource> nonConformities) {
     }
 
-    public record NonConformityResource(Long id, Long excursionId, String batchCode, String productName,
+    public record NonConformityResource(UUID id, UUID excursionId, String batchCode, String productName,
                                         BigDecimal quantity, Instant storedAt, String classification,
-                                        String disposition, String justification, Long registeredBy,
+                                        String disposition, String justification, UUID registeredBy,
                                         Instant registeredAt, Instant resolvedAt) {
     }
 
-    public record RegisterNonConformityResource(@NotBlank @Size(max = 80) String batchCode,
-                                                @Size(max = 200) String productName,
+    public record RegisterNonConformityResource(@NotBlank @Size(max = 60) String batchCode,
+                                                @Size(max = 150) String productName,
                                                 @Positive BigDecimal quantity, Instant storedAt,
-                                                @NotBlank @Size(max = 80) String classification) {
+                                                @NotBlank @Size(max = 60) String classification) {
     }
 
     public record UpdateDispositionResource(@NotNull Disposition disposition, @Size(max = 1000) String justification) {
     }
 
-    public record GenerateTraceabilityReportResource(@NotNull Long monitoringZoneId, @NotNull Instant periodStart,
+    public record GenerateTraceabilityReportResource(@NotNull UUID monitoringZoneId, @NotNull Instant periodStart,
                                                      @NotNull Instant periodEnd) {
     }
 
     /** content solo se incluye al consultar o descargar un reporte puntual, no en el listado. */
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record TraceabilityReportResource(Long id, Long monitoringZoneId, Instant periodStart, Instant periodEnd,
-                                             Long generatedBy, Instant generatedAt, int excursionCount,
+    public record TraceabilityReportResource(UUID id, UUID monitoringZoneId, Instant periodStart, Instant periodEnd,
+                                             UUID generatedBy, Instant generatedAt, int excursionCount,
                                              int measurementCount, String status, String checksum,
-                                             boolean integrityVerified, List<Long> excursionIds, JsonNode content) {
+                                             boolean integrityVerified, List<UUID> excursionIds, JsonNode content) {
     }
 
-    public record MeasurementResource(Long monitoringPointId, String environmentalVariable, double value,
+    public record MeasurementResource(UUID monitoringPointId, String environmentalVariable, double value,
                                       Instant recordedAt) {
     }
 
-    public record MeasurementHistoryResource(Long monitoringZoneId, Instant from, Instant to, int count,
+    public record MeasurementHistoryResource(UUID monitoringZoneId, Instant from, Instant to, int count,
                                              List<MeasurementResource> measurements) {
     }
 }

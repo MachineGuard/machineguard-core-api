@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
+import java.util.UUID;
 
 import static com.machineguard.platform.traceability.interfaces.rest.TraceabilityHeaders.ORGANIZATION;
 
@@ -35,7 +36,7 @@ public class MeasurementHistoryController {
     @GetMapping("/measurement-history")
     @Operation(summary = "Measurement History de una zona dentro de un periodo")
     public MeasurementHistoryResource byZone(
-            @RequestHeader(ORGANIZATION) Long organizationId, @RequestParam Long monitoringZoneId,
+            @RequestHeader(ORGANIZATION) UUID organizationId, @RequestParam UUID monitoringZoneId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
             @RequestParam(required = false) EnvironmentalVariable variable) {
@@ -45,8 +46,8 @@ public class MeasurementHistoryController {
 
     @GetMapping("/excursions/{excursionId}/measurement-history")
     @Operation(summary = "Measurement History asociado a una excursion")
-    public MeasurementHistoryResource byExcursion(@RequestHeader(ORGANIZATION) Long organizationId,
-                                                  @PathVariable Long excursionId) {
+    public MeasurementHistoryResource byExcursion(@RequestHeader(ORGANIZATION) UUID organizationId,
+                                                  @PathVariable UUID excursionId) {
         var points = queries.handleForExcursion(organizationId, excursionId);
         Instant from = points.isEmpty() ? null : points.get(0).recordedAt();
         Instant to = points.isEmpty() ? null : points.get(points.size() - 1).recordedAt();

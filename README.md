@@ -26,7 +26,7 @@ mvn test
 
 ## Endpoints (`/api/v1/traceability`)
 
-Toda petición lleva las cabeceras `X-Organization-Id` y, en las que escriben, `X-User-Id` (ver _Identidad_).
+Toda petición lleva las cabeceras `X-Organization-Id` y, en las que escriben, `X-User-Id` (ver _Identidad_). Todos los identificadores son UUID, igual que en IAM.
 
 | Método | Ruta | Descripción |
 |---|---|---|
