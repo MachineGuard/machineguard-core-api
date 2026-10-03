@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: machineguard-core-api
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/machineguard}
+    username: ${DB_USERNAME:machineguard}
+    password: ${DB_PASSWORD:machineguard}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+  flyway:
+    enabled: true
+
+machineguard:
+  traceability:
+    # Retention Period del Measurement History y de las excursiones (meses).
+    retention-months: ${TRACEABILITY_RETENTION_MONTHS:60}
+    # Depuracion automatica diaria; desactivada por defecto porque elimina evidencia.
+    retention-purge-enabled: ${TRACEABILITY_PURGE_ENABLED:false}
+    max-report-days: 366
+    # Tabla de Environmental Monitoring de la que se lee el Measurement History.
+    measurements-table: ${TRACEABILITY_MEASUREMENTS_TABLE:measurements}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html

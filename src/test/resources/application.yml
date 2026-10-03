@@ -1,0 +1,17 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:traceability;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+
+machineguard:
+  traceability:
+    retention-months: 12
+    retention-purge-enabled: false
+    max-report-days: 366
+    measurements-table: measurements
