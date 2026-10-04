@@ -4,7 +4,6 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
-/** Domain aggregate for an organization member and its access policy. */
 public final class User {
     private final UUID id;
     private final UUID organizationId;

@@ -4,7 +4,6 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
-/** Domain aggregate for one rotating refresh-token session. */
 public final class AuthenticationSession {
     private final UUID id;
     private final UUID userId;

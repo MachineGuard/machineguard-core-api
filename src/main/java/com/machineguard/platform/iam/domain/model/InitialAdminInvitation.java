@@ -4,7 +4,6 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
-/** One-time invitation aggregate for the initial administrator of a new tenant. */
 public final class InitialAdminInvitation {
     private final UUID id;
     private final UUID userId;

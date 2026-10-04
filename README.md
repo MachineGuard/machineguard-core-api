@@ -10,7 +10,7 @@ Requiere Docker Desktop con el daemon iniciado y Docker Compose v2. Crea la conf
 Copy-Item .env.example .env
 ```
 
-Configura `MACHINEGUARD_DB_PASSWORD` e `IAM_JWT_SECRET`; la clave JWT debe tener al menos 32 bytes UTF-8. Mantén `.env` local, está excluido de Git. Para iniciar:
+Configura `MACHINEGUARD_DB_PASSWORD` e `IAM_JWT_SECRET`. La clave JWT requiere al menos 32 bytes en UTF-8. El archivo `.env` está excluido de Git y debe mantenerse local. Para iniciar:
 
 ```bash
 docker compose up --build
@@ -30,7 +30,7 @@ IAM_BOOTSTRAP_ADMIN_EMAIL=admin@example.com
 IAM_BOOTSTRAP_ADMIN_PASSWORD=una-frase-segura-de-al-menos-12-caracteres
 ```
 
-Al terminar, IAM guarda un marcador persistente para que reiniciar la API no vuelva a crear el usuario. Si la API se inició antes con el bootstrap desactivado, se puede activar después mientras la base no tenga organizaciones ni usuarios. Si ya hay datos IAM, el proceso se niega a crear otra organización; conserva los datos y usa el onboarding administrado. La API nunca registra la contraseña.
+Tras crear el administrador, IAM guarda un marcador persistente para que reiniciar la API no vuelva a crear el usuario. Si la API se inició antes con el bootstrap desactivado, se puede activar después mientras la base no tenga organizaciones ni usuarios. Si ya existen organizaciones o usuarios, el bootstrap se detiene y no modifica esos registros. La API nunca registra la contraseña.
 
 ### Ejecución sin Docker
 
@@ -60,9 +60,9 @@ Los correos se normalizan a minúsculas y son únicos globalmente. Solo un admin
 | PATCH | `/api/v1/users/{userId}/status` | Activa/desactiva un usuario del mismo tenant | Bearer + ADMIN |
 | GET | `/api/v1/organizations/{organizationId}` | Consulta la organización del tenant autenticado | Bearer |
 
-Una solicitud de creación de organización no está expuesta como endpoint público. IAM hoy recibe `PilotRequestSubmitted(requestId, companyName, contactName, contactEmail)` como evento Spring dentro del mismo proceso (integración in-process); la conexión con el contexto Customer Acquisition aún está pendiente. IAM crea la organización y un administrador inactivo, y publica `InitialAdminInvitationIssued` con un token de invitación de un solo uso. La integración de producción debe conectar ese evento con el servicio de notificaciones para entregar un enlace HTTPS al contacto. El bootstrap local crea directamente un administrador activo.
+No hay un endpoint público para crear organizaciones. IAM recibe `PilotRequestSubmitted(requestId, companyName, contactName, contactEmail)` como evento Spring local; la conexión con Customer Acquisition aún está pendiente. IAM crea la organización y un administrador inactivo, y publica `InitialAdminInvitationIssued` con un token de un solo uso. En producción, el servicio de notificaciones debe entregar al contacto el enlace HTTPS de invitación. El bootstrap local crea directamente un administrador activo.
 
-Los endpoints IAM y Traceability usan `Authorization: Bearer <accessToken>`. Traceability deriva `userId`, `organizationId` y rol únicamente de los claims JWT firmados; las antiguas cabeceras `X-Organization-Id` y `X-User-Id` se ignoran. Solo `ADMIN` puede crear reportes o registrar/cambiar disposiciones de no conformidades; `VIEWER` consulta información. El filtro no consulta la base por cada endpoint de Traceability: un access token ya emitido puede conservar validez hasta que expire, mientras que `/auth/validate` comprueba el estado actual de sesión y usuario.
+Los endpoints IAM protegidos y todos los de Traceability requieren `Authorization: Bearer <accessToken>`. Traceability obtiene `userId`, `organizationId` y rol de los claims JWT firmados; ignora las cabeceras `X-Organization-Id` y `X-User-Id`. Solo `ADMIN` puede crear reportes o registrar/cambiar disposiciones de no conformidades; `VIEWER` solo puede consultar. El filtro valida la firma y expiración del token en cada solicitud, pero no consulta la base de datos. Un access token activo puede seguir aceptándose hasta expirar; `/api/v1/auth/validate` también comprueba el estado actual de la sesión, el usuario y la organización.
 
 ## Traceability & Quality
 
@@ -104,7 +104,7 @@ La migración `V4_0__traceability_quality.sql` crea `excursions`, `non_conformit
 
 - Swagger UI: `http://localhost:8080/swagger-ui.html`
 - Documento OpenAPI: `http://localhost:8080/v3/api-docs`
-- Variables IAM: `IAM_JWT_SECRET`, `IAM_ACCESS_TOKEN_TTL_SECONDS` (60–3600; por defecto 900), `IAM_REFRESH_TOKEN_TTL_DAYS` (por defecto 30) y `IAM_BOOTSTRAP_*`.
+- Variables IAM: `IAM_JWT_SECRET`, `IAM_ACCESS_TOKEN_TTL_SECONDS` (de 60 a 3600 segundos), `IAM_REFRESH_TOKEN_TTL_DAYS` (por defecto 30) y `IAM_BOOTSTRAP_*`.
 - Variables de base de datos: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`. Compose permite configurar los puertos expuestos mediante `API_PORT` (8080 por defecto) y `POSTGRES_PORT` (5432 por defecto).
 - Traceability: `TRACEABILITY_RETENTION_MONTHS` (60), `TRACEABILITY_PURGE_ENABLED` (false), `TRACEABILITY_MEASUREMENTS_TABLE` (`measurements`).
 - Pruebas de integración con H2: `mvn test`.

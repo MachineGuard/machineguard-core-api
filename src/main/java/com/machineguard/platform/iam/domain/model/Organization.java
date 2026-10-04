@@ -4,7 +4,6 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
-/** Domain aggregate for a tenant organization. Persistence concerns belong to adapters. */
 public final class Organization {
     private final UUID id;
     private final String name;

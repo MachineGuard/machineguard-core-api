@@ -3,7 +3,6 @@ package com.machineguard.platform.iam.domain.model;
 import java.time.Instant;
 import java.util.Objects;
 
-/** Durable marker that prevents a second initial administrator bootstrap. */
 public record BootstrapState(String key, Instant completedAt) {
     public BootstrapState {
         Objects.requireNonNull(key, "bootstrap key is required");

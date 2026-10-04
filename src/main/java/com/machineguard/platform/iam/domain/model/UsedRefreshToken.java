@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
-/** Audit record used to detect replay of a previously rotated refresh token. */
+/** Guarda el hash de cada refresh usado para detectar su reutilización. */
 public record UsedRefreshToken(String tokenHash, UUID sessionId, Instant usedAt) {
     public UsedRefreshToken {
         Objects.requireNonNull(tokenHash, "token hash is required");

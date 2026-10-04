@@ -88,6 +88,7 @@ public class IamService {
         return authentication(user, organization, sessionId, refreshToken);
     }
 
+    // Se confirma la revocación aunque la respuesta por replay sea 401.
     @Transactional(noRollbackFor = RefreshTokenReplayException.class)
     public AuthenticationResult refresh(String rawRefreshToken) {
         String hash = tokens.hashToken(rawRefreshToken);
@@ -299,6 +300,7 @@ public class IamService {
         return users.countByOrganizationIdAndRoleAndStatus(organizationId, Role.ADMIN, UserStatus.ACTIVE);
     }
 
+    // El lock serializa cambios que podrían quitar al último administrador activo.
     private Organization lockOrganizationForAdminChange(IamPrincipal actor) {
         if (actor.role() != Role.ADMIN) throw new AccessDeniedException("An active organization administrator is required");
         Organization organization = organizations.findByIdForUpdate(actor.organizationId())
