@@ -3,6 +3,10 @@ package com.machineguard.platform.iam.interfaces.rest;
 import com.machineguard.platform.iam.application.IamService;
 import com.machineguard.platform.iam.infrastructure.security.IamPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -36,6 +40,10 @@ public class UserController {
 
     @PostMapping("/organizations/{organizationId}/users")
     @Operation(summary = "Register a user in the authenticated organization (ADMIN)")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "User created",
+                    content = @Content(schema = @Schema(implementation = UserResource.class)))
+    })
     public ResponseEntity<UserResource> register(@AuthenticationPrincipal IamPrincipal principal,
                                                  @PathVariable UUID organizationId,
                                                  @Valid @RequestBody RegisterUserRequest request) {

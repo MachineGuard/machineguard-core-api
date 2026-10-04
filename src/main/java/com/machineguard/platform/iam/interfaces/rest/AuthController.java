@@ -3,6 +3,10 @@ package com.machineguard.platform.iam.interfaces.rest;
 import com.machineguard.platform.iam.application.IamService;
 import com.machineguard.platform.iam.infrastructure.security.IamPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -43,6 +47,9 @@ public class AuthController {
     @PostMapping("/logout")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Revoke the authenticated session's refresh token")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Session revoked", content = @Content)
+    })
     public ResponseEntity<Void> logout(@AuthenticationPrincipal IamPrincipal principal,
                                        @Valid @RequestBody LogoutRequest request) {
         iam.logout(principal, request.refreshToken());
@@ -67,6 +74,10 @@ public class AuthController {
 
     @PostMapping("/invitations/accept")
     @Operation(summary = "Accept a one-time organization administrator invitation")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Invitation accepted",
+                    content = @Content(schema = @Schema(implementation = InvitationAcceptedResource.class)))
+    })
     public ResponseEntity<InvitationAcceptedResource> acceptInvitation(@Valid @RequestBody AcceptInvitationRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(iam.acceptInvitation(request.token(), request.password()));
     }
