@@ -27,11 +27,17 @@ public class AuthenticationSessionEntity {
     protected AuthenticationSessionEntity() { }
 
     public AuthenticationSessionEntity(UUID id, UUID userId, String hash, Instant issuedAt, Instant expiresAt) {
+        this(id, userId, hash, issuedAt, expiresAt, null);
+    }
+
+    public AuthenticationSessionEntity(UUID id, UUID userId, String hash, Instant issuedAt,
+                                       Instant expiresAt, Instant revokedAt) {
         this.id = id;
         this.userId = userId;
         this.refreshTokenHash = hash;
         this.issuedAt = issuedAt;
         this.expiresAt = expiresAt;
+        this.revokedAt = revokedAt;
     }
 
     public UUID getId() { return id; }

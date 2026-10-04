@@ -36,13 +36,19 @@ public class OrganizationEntity {
 
     public OrganizationEntity(UUID id, String name, SubscriptionPlan subscriptionPlan,
                               OrganizationStatus status, UUID acquisitionRequestId, Instant now) {
+        this(id, name, subscriptionPlan, status, acquisitionRequestId, now, now);
+    }
+
+    public OrganizationEntity(UUID id, String name, SubscriptionPlan subscriptionPlan,
+                              OrganizationStatus status, UUID acquisitionRequestId,
+                              Instant createdAt, Instant updatedAt) {
         this.id = id;
         this.name = name;
         this.subscriptionPlan = subscriptionPlan;
         this.status = status;
         this.acquisitionRequestId = acquisitionRequestId;
-        this.createdAt = now;
-        this.updatedAt = now;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
     }
 
     public UUID getId() { return id; }

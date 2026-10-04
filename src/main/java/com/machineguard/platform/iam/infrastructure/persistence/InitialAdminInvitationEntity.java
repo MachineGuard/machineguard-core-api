@@ -26,11 +26,16 @@ public class InitialAdminInvitationEntity {
 
     protected InitialAdminInvitationEntity() { }
     public InitialAdminInvitationEntity(UUID id, UUID userId, String tokenHash, Instant issuedAt, Instant expiresAt) {
+        this(id, userId, tokenHash, issuedAt, expiresAt, null);
+    }
+    public InitialAdminInvitationEntity(UUID id, UUID userId, String tokenHash, Instant issuedAt,
+                                        Instant expiresAt, Instant consumedAt) {
         this.id = id;
         this.userId = userId;
         this.tokenHash = tokenHash;
         this.issuedAt = issuedAt;
         this.expiresAt = expiresAt;
+        this.consumedAt = consumedAt;
     }
     public UUID getId() { return id; }
     public UUID getUserId() { return userId; }

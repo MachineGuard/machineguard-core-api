@@ -2,6 +2,7 @@ package com.machineguard.platform.iam.infrastructure.security;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.machineguard.platform.iam.application.port.TokenProvider;
 import com.machineguard.platform.iam.domain.model.Role;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,7 +22,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @Service
-public class JwtTokenService {
+public class JwtTokenService implements TokenProvider {
     private static final String HMAC_ALGORITHM = "HmacSHA256";
     private final ObjectMapper objectMapper;
     private final Clock clock;
@@ -51,7 +52,8 @@ public class JwtTokenService {
         }
     }
 
-    public IssuedAccessToken issueAccessToken(UUID userId, UUID organizationId, Role role, UUID sessionId) {
+    @Override
+    public TokenProvider.IssuedAccessToken issueAccessToken(UUID userId, UUID organizationId, Role role, UUID sessionId) {
         Instant now = clock.instant();
         Instant expiresAt = now.plusSeconds(accessTokenTtlSeconds);
         Map<String, Object> claims = Map.of(
@@ -64,7 +66,7 @@ public class JwtTokenService {
                 "exp", expiresAt.getEpochSecond(),
                 "jti", UUID.randomUUID().toString()
         );
-        return new IssuedAccessToken(sign(claims), accessTokenTtlSeconds, expiresAt);
+        return new TokenProvider.IssuedAccessToken(sign(claims), accessTokenTtlSeconds, expiresAt);
     }
 
     public ValidatedClaims validate(String token) {
@@ -93,13 +95,18 @@ public class JwtTokenService {
         }
     }
 
+    @Override
     public String newRefreshToken() {
         byte[] bytes = new byte[48];
         secureRandom.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
+    @Override
     public String newInvitationToken() { return newRefreshToken(); }
+
+    @Override
+    public String hashToken(String rawToken) { return tokenHash(rawToken); }
 
     public static String tokenHash(String token) {
         try {
@@ -147,6 +154,5 @@ public class JwtTokenService {
         return new BadCredentialsException("Invalid or expired bearer token");
     }
 
-    public record IssuedAccessToken(String value, long expiresIn, Instant expiresAt) { }
     public record ValidatedClaims(UUID userId, UUID organizationId, Role role, UUID sessionId, Instant expiresAt) { }
 }

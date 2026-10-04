@@ -21,4 +21,6 @@ public class BootstrapStateEntity {
         this.bootstrapKey = bootstrapKey;
         this.completedAt = completedAt;
     }
+    public String getBootstrapKey() { return bootstrapKey; }
+    public Instant getCompletedAt() { return completedAt; }
 }

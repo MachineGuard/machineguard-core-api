@@ -42,6 +42,11 @@ public class UserEntity {
 
     public UserEntity(UUID id, UUID organizationId, String email, String passwordHash, String fullName,
                       Role role, UserStatus status, Instant now) {
+        this(id, organizationId, email, passwordHash, fullName, role, status, null, now, now);
+    }
+
+    public UserEntity(UUID id, UUID organizationId, String email, String passwordHash, String fullName,
+                      Role role, UserStatus status, Instant lastLoginAt, Instant createdAt, Instant updatedAt) {
         this.id = id;
         this.organizationId = organizationId;
         this.email = email;
@@ -49,8 +54,9 @@ public class UserEntity {
         this.fullName = fullName;
         this.role = role;
         this.status = status;
-        this.createdAt = now;
-        this.updatedAt = now;
+        this.lastLoginAt = lastLoginAt;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
     }
 
     public UUID getId() { return id; }
