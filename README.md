@@ -1,69 +1,110 @@
-# MachineGuard Core API · Traceability & Quality
+# MachineGuard Core API
 
-Bounded Context **Traceability & Quality** de la RESTful API central de MachineGuard. Convierte las desviaciones ambientales en Excursions, vincula cada excursión con el incidente y la acción correctiva, registra No conformidades sobre lotes afectados y genera Traceability Reports sellados e inmutables para auditorías (HACCP, ISO 9001).
+REST API central de MachineGuard con los bounded contexts **IAM** y **Traceability & Quality**, desarrollada con Spring Boot 3.5, Spring Security, Spring Data JPA, Flyway y PostgreSQL. Los identificadores son UUID. La documentación OpenAPI y Swagger UI se sirven desde la propia API.
 
-- Spring Boot 3.5, Spring Data JPA, Flyway, PostgreSQL
-- OpenAPI / Swagger (springdoc)
-- DDD por capas: `domain`, `application`, `interfaces`, `infrastructure` en `com.machineguard.platform.traceability`
+## Inicio local con Docker Compose
 
-## Ejecución
+Requiere Docker Desktop con el daemon iniciado y Docker Compose v2. Crea la configuración local y reemplaza los valores de ejemplo antes de iniciar los servicios:
 
-Requiere JDK 21 o superior y una base PostgreSQL.
+```powershell
+Copy-Item .env.example .env
+```
+
+Configura `MACHINEGUARD_DB_PASSWORD` e `IAM_JWT_SECRET`; la clave JWT debe tener al menos 32 bytes UTF-8. Mantén `.env` local, está excluido de Git. Para iniciar:
+
+```bash
+docker compose up --build
+```
+
+La API espera a que PostgreSQL esté saludable y luego ejecuta las migraciones Flyway. La API queda en `http://localhost:8080`; PostgreSQL persiste en el volumen `machineguard-postgres`. Para detener los procesos conserva la base con `docker compose down`; `docker compose down -v` también elimina los datos locales.
+
+### Administrador inicial local
+
+Para crear la organización `FREE` y su administrador una sola vez, establece estos valores en `.env` antes del primer inicio:
+
+```dotenv
+IAM_BOOTSTRAP_ENABLED=true
+IAM_BOOTSTRAP_ORGANIZATION_NAME=Mi organización
+IAM_BOOTSTRAP_ADMIN_NAME=Nombre del administrador
+IAM_BOOTSTRAP_ADMIN_EMAIL=admin@example.com
+IAM_BOOTSTRAP_ADMIN_PASSWORD=una-frase-segura-de-al-menos-12-caracteres
+```
+
+Al terminar, IAM guarda un marcador persistente para que reiniciar la API no vuelva a crear el usuario. Si la API se inició antes con el bootstrap desactivado, se puede activar después mientras la base no tenga organizaciones ni usuarios. Si ya hay datos IAM, el proceso se niega a crear otra organización; conserva los datos y usa el onboarding administrado. La API nunca registra la contraseña.
+
+### Ejecución sin Docker
+
+Se requiere Java 21 y Maven. Configura `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` e `IAM_JWT_SECRET` en el entorno y ejecuta:
 
 ```bash
 mvn spring-boot:run
 ```
 
-Variables: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `TRACEABILITY_RETENTION_MONTHS` (60), `TRACEABILITY_PURGE_ENABLED` (false), `TRACEABILITY_MEASUREMENTS_TABLE` (measurements).
+## IAM
 
-Swagger UI: `http://localhost:8080/swagger-ui.html`
+El acceso usa JWT HMAC-SHA256 con `userId` en `sub`, `organizationId`, `role` (`ADMIN`/`VIEWER`) y `sid`; la duración por defecto es 15 minutos. Las claves y contraseñas se leen del entorno. Cada sesión conserva el hash SHA-256 del refresh token. El refresh rota el token y conserva los hashes consumidos para rechazar su reutilización y revocar esa sesión. Al cambiar contraseña o desactivar a un usuario, se revocan sus sesiones renovables.
 
-Pruebas (H2 en modo PostgreSQL, no requieren base externa):
+Los correos se normalizan a minúsculas y son únicos globalmente. Solo un administrador activo de la organización puede registrar y administrar usuarios. El último administrador activo no puede degradarse ni desactivarse. Los cambios administrativos bloquean la fila de la organización durante la comprobación del último administrador para evitar carreras entre transacciones. Usuarios u organizaciones inactivos/suspendidos no pueden iniciar sesión ni renovar una sesión. Las contraseñas requieren al menos 12 caracteres y como máximo 72 bytes UTF-8 para coincidir con el límite de BCrypt.
 
-```bash
-mvn test
-```
+| Método | Ruta | Descripción | Acceso |
+|---|---|---|---|
+| POST | `/api/v1/auth/login` | Autentica correo y contraseña; devuelve access y refresh token | Público |
+| POST | `/api/v1/auth/refresh` | Rota el refresh token | Público con refresh token |
+| POST | `/api/v1/auth/logout` | Revoca la sesión asociada al refresh token | Bearer |
+| POST | `/api/v1/auth/password-reset` | Verifica la contraseña actual, cambia la clave y revoca todas las sesiones renovables | Bearer |
+| POST | `/api/v1/auth/validate` | Verifica JWT, sesión, usuario y organización activos | Bearer |
+| POST | `/api/v1/auth/invitations/accept` | Canjea una invitación de administrador de un solo uso por una contraseña | Público con invitación |
+| GET | `/api/v1/users/me` | Consulta el perfil autenticado | Bearer |
+| POST | `/api/v1/organizations/{organizationId}/users` | Registra un usuario en el tenant autenticado | Bearer + ADMIN |
+| PATCH | `/api/v1/users/{userId}/role` | Cambia `ADMIN`/`VIEWER` en el mismo tenant | Bearer + ADMIN |
+| PATCH | `/api/v1/users/{userId}/status` | Activa/desactiva un usuario del mismo tenant | Bearer + ADMIN |
+| GET | `/api/v1/organizations/{organizationId}` | Consulta la organización del tenant autenticado | Bearer |
 
-## Endpoints (`/api/v1/traceability`)
+Una solicitud de creación de organización no está expuesta como endpoint público. IAM hoy recibe `PilotRequestSubmitted(requestId, companyName, contactName, contactEmail)` como evento Spring dentro del mismo proceso (integración in-process); la conexión con el contexto Customer Acquisition aún está pendiente. IAM crea la organización y un administrador inactivo, y publica `InitialAdminInvitationIssued` con un token de invitación de un solo uso. La integración de producción debe conectar ese evento con el servicio de notificaciones para entregar un enlace HTTPS al contacto. El bootstrap local crea directamente un administrador activo.
 
-Toda petición lleva las cabeceras `X-Organization-Id` y, en las que escriben, `X-User-Id` (ver _Identidad_). Todos los identificadores son UUID, igual que en IAM.
+Los endpoints IAM y Traceability usan `Authorization: Bearer <accessToken>`. Traceability deriva `userId`, `organizationId` y rol únicamente de los claims JWT firmados; las antiguas cabeceras `X-Organization-Id` y `X-User-Id` se ignoran. Solo `ADMIN` puede crear reportes o registrar/cambiar disposiciones de no conformidades; `VIEWER` consulta información. El filtro no consulta la base por cada endpoint de Traceability: un access token ya emitido puede conservar validez hasta que expire, mientras que `/auth/validate` comprueba el estado actual de sesión y usuario.
+
+## Traceability & Quality
+
+Toda consulta filtra por el `organizationId` autenticado. Los endpoints principales bajo `/api/v1/traceability` son:
 
 | Método | Ruta | Descripción |
 |---|---|---|
 | GET | `/excursions` | Historial filtrable por `monitoringZoneId`, `from`, `to`, `status` |
 | GET | `/excursions/open` | Excursiones abiertas |
-| GET | `/excursions/{id}` | Detalle con sus no conformidades |
-| GET | `/excursions/{id}/measurement-history` | Measurement History de la excursión |
-| POST | `/excursions/{id}/non-conformities` | Registra un lote afectado (queda `QUARANTINED`) |
+| GET | `/excursions/{id}` | Detalle con no conformidades |
+| GET | `/excursions/{id}/measurement-history` | Historial de mediciones de la excursión |
+| POST | `/excursions/{id}/non-conformities` | Registra un lote afectado en cuarentena |
 | GET | `/excursions/{id}/non-conformities` | No conformidades de una excursión |
-| PATCH | `/non-conformities/{id}/disposition` | `RELEASED` exige justificación; una resuelta no cambia |
-| POST | `/reports` | Genera y sella un reporte (`monitoringZoneId`, `periodStart`, `periodEnd`) |
-| GET | `/reports` | Lista los reportes (sin contenido) |
-| GET | `/reports/{id}` | Reporte con contenido y `integrityVerified` |
-| GET | `/reports/{id}/download` | Mismo reporte como adjunto JSON (para el ERP del cliente) |
-| GET | `/measurement-history` | Historial de una zona en un periodo |
+| PATCH | `/non-conformities/{id}/disposition` | Cambia el destino del lote; liberar exige justificación |
+| POST | `/reports` | Genera y sella un reporte por zona y periodo |
+| GET | `/reports` | Lista reportes sin contenido |
+| GET | `/reports/{id}` | Lee un reporte y comprueba su integridad |
+| GET | `/reports/{id}/download` | Descarga el reporte JSON |
+| GET | `/measurement-history` | Historial de una zona y periodo |
 
-## Reglas de negocio implementadas
+### Reglas de negocio
 
-- Una desviación sin excursión abierta para la zona y variable inicia una nueva; con una abierta solo actualiza el valor pico (`open_key` único garantiza una sola abierta por zona y variable).
+- Una desviación sin excursión abierta para la zona y variable inicia una nueva; con una abierta solo actualiza el valor pico. La clave `open_key` impide duplicar excursiones abiertas.
 - La excursión se cierra con `SafeRangeRestored` o `IncidentResolved`; la duración se calcula entre inicio y cierre.
-- Una excursión abierta no entra como evidencia cerrada en un reporte; se informa cuántas se excluyeron.
+- Una excursión abierta no se incorpora como evidencia cerrada en un reporte; se informa cuántas se excluyeron.
 - Un reporte incluye Measurement History, excursiones cerradas y acciones correctivas, se sella con SHA-256 y es inmutable.
 - Toda no conformidad pertenece a una excursión de la misma organización; liberar un lote exige justificación.
-- Retention Period: `RetentionPolicyService` depura excursiones cerradas vencidas, salvo las incluidas en un reporte sellado. El job diario está desactivado por defecto (`TRACEABILITY_PURGE_ENABLED`).
+- `RetentionPolicyService` depura excursiones cerradas vencidas, salvo las incluidas en un reporte sellado. El job diario está desactivado por defecto (`TRACEABILITY_PURGE_ENABLED=false`).
 
-## Integración con otros contextos
+### Integración con otros contextos
 
-**Eventos que consume** (`application/integration/InboundEvents`), publicados con `ApplicationEventPublisher` dentro de la API central:
+Los eventos `DeviationDetected` y `SafeRangeRestored` de Environmental Monitoring e `IncidentResolved` de Alert & Incident Management se reciben como eventos Spring dentro del proceso de la API. Traceability publica `ExcursionStarted`, `ExcursionEnded` y `TraceabilityReportGenerated`.
 
-- `DeviationDetected` (Environmental Monitoring)
-- `SafeRangeRestored` (Environmental Monitoring)
-- `IncidentResolved` (Alert & Incident Management)
+Measurement History se lee mediante `MeasurementHistoryProvider` y su adaptador JDBC de la tabla configurable `measurements`, con las columnas `organization_id`, `monitoring_zone_id`, `monitoring_point_id`, `environmental_variable`, `measured_value` y `recorded_at`. Esa tabla pertenece a Environmental Monitoring; no se crea aquí y aún no existe en el Compose local mientras ese contexto no esté integrado. Por ello, los endpoints de Measurement History responden `503` hasta conectar dicho contexto.
 
-**Eventos que publica:** `ExcursionStarted`, `ExcursionEnded`, `TraceabilityReportGenerated`.
+La migración `V4_0__traceability_quality.sql` crea `excursions`, `non_conformities`, `traceability_reports` y `traceability_report_excursions`; `V5__iam.sql` añade las tablas IAM. Traceability usa la identidad autenticada por JWT y no acepta identificadores de usuario u organización enviados por el cliente.
 
-**Measurement History:** se lee de la tabla de Environmental Monitoring (`MeasurementHistoryProvider`, adaptador JDBC) con las columnas `organization_id`, `monitoring_zone_id`, `monitoring_point_id`, `environmental_variable`, `measured_value`, `recorded_at`.
+## OpenAPI, configuración y pruebas
 
-**Identidad:** IAM entrega organización y usuario. Hasta integrar su filtro JWT se leen de `X-Organization-Id` y `X-User-Id`; al integrarlo basta con poblar esos valores desde el token validado.
-
-**Base de datos:** la migración `V4_0__traceability_quality.sql` crea `excursions`, `non_conformities`, `traceability_reports` y `traceability_report_excursions`. Para la integración final se debe renumerar según el orden del resto de migraciones.
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
+- Documento OpenAPI: `http://localhost:8080/v3/api-docs`
+- Variables IAM: `IAM_JWT_SECRET`, `IAM_ACCESS_TOKEN_TTL_SECONDS` (60–3600; por defecto 900), `IAM_REFRESH_TOKEN_TTL_DAYS` (por defecto 30) y `IAM_BOOTSTRAP_*`.
+- Variables de base de datos: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`. Compose permite configurar los puertos expuestos mediante `API_PORT` (8080 por defecto) y `POSTGRES_PORT` (5432 por defecto).
+- Traceability: `TRACEABILITY_RETENTION_MONTHS` (60), `TRACEABILITY_PURGE_ENABLED` (false), `TRACEABILITY_MEASUREMENTS_TABLE` (`measurements`).
+- Pruebas de integración con H2: `mvn test`.

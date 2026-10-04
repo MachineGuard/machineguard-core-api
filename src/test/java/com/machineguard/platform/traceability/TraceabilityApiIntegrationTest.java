@@ -6,6 +6,8 @@ import com.machineguard.platform.traceability.application.integration.InboundEve
 import com.machineguard.platform.traceability.application.integration.InboundEvents.IncidentResolved;
 import com.machineguard.platform.traceability.application.integration.InboundEvents.SafeRangeRestored;
 import com.machineguard.platform.traceability.domain.model.EnvironmentalVariable;
+import com.machineguard.platform.iam.domain.model.Role;
+import com.machineguard.platform.iam.infrastructure.security.JwtTokenService;
 import com.machineguard.platform.traceability.domain.model.RetentionPeriod;
 import com.machineguard.platform.traceability.domain.services.RetentionPolicyService;
 import org.junit.jupiter.api.BeforeEach;
@@ -70,6 +72,7 @@ class TraceabilityApiIntegrationTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired ApplicationEventPublisher events;
     @Autowired RetentionPolicyService retention;
+    @Autowired JwtTokenService jwtTokens;
 
     @BeforeEach
     void cleanDatabase() {
@@ -85,7 +88,10 @@ class TraceabilityApiIntegrationTest {
     }
 
     private MockHttpServletRequestBuilder withIdentity(MockHttpServletRequestBuilder request, UUID org) {
-        return request.header("X-Organization-Id", org).header("X-User-Id", USER);
+        String accessToken = jwtTokens.issueAccessToken(USER, org, Role.ADMIN, uuid(888)).value();
+        UUID spoofedOrganization = org.equals(ORG) ? OTHER_ORG : ORG;
+        return request.header("Authorization", "Bearer " + accessToken)
+                .header("X-Organization-Id", spoofedOrganization).header("X-User-Id", uuid(777));
     }
 
     private MockHttpServletRequestBuilder withIdentity(MockHttpServletRequestBuilder request) {
@@ -171,7 +177,7 @@ class TraceabilityApiIntegrationTest {
                 .andExpect(jsonPath("$.length()").value(0));
         mvc.perform(withIdentity(get(BASE + "/excursions"), OTHER_ORG))
                 .andExpect(jsonPath("$.length()").value(0));
-        mvc.perform(get(BASE + "/excursions")).andExpect(status().isBadRequest());
+        mvc.perform(get(BASE + "/excursions")).andExpect(status().isUnauthorized());
     }
 
     @Test

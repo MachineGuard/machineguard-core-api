@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: machineguard
+      POSTGRES_USER: machineguard
+      POSTGRES_PASSWORD: ${MACHINEGUARD_DB_PASSWORD:?Set MACHINEGUARD_DB_PASSWORD in .env}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - machineguard-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U machineguard -d machineguard"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  api:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/machineguard
+      DB_USERNAME: machineguard
+      DB_PASSWORD: ${MACHINEGUARD_DB_PASSWORD:?Set MACHINEGUARD_DB_PASSWORD in .env}
+      IAM_JWT_SECRET: ${IAM_JWT_SECRET:?Set IAM_JWT_SECRET in .env}
+      IAM_ACCESS_TOKEN_TTL_SECONDS: ${IAM_ACCESS_TOKEN_TTL_SECONDS:-900}
+      IAM_REFRESH_TOKEN_TTL_DAYS: ${IAM_REFRESH_TOKEN_TTL_DAYS:-30}
+      IAM_BOOTSTRAP_ENABLED: ${IAM_BOOTSTRAP_ENABLED:-false}
+      IAM_BOOTSTRAP_ORGANIZATION_NAME: ${IAM_BOOTSTRAP_ORGANIZATION_NAME:-}
+      IAM_BOOTSTRAP_ADMIN_NAME: ${IAM_BOOTSTRAP_ADMIN_NAME:-}
+      IAM_BOOTSTRAP_ADMIN_EMAIL: ${IAM_BOOTSTRAP_ADMIN_EMAIL:-}
+      IAM_BOOTSTRAP_ADMIN_PASSWORD: ${IAM_BOOTSTRAP_ADMIN_PASSWORD:-}
+    ports:
+      - "${API_PORT:-8080}:8080"
+
+volumes:
+  machineguard-postgres:

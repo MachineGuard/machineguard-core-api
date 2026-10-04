@@ -4,7 +4,7 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/machineguard}
     username: ${DB_USERNAME:machineguard}
-    password: ${DB_PASSWORD:machineguard}
+    password: ${DB_PASSWORD:}
   jpa:
     open-in-view: false
     hibernate:
@@ -13,6 +13,17 @@ spring:
     enabled: true
 
 machineguard:
+  iam:
+    jwt-secret: ${IAM_JWT_SECRET:}
+    issuer: machineguard-iam
+    access-token-ttl-seconds: ${IAM_ACCESS_TOKEN_TTL_SECONDS:900}
+    refresh-token-ttl-days: ${IAM_REFRESH_TOKEN_TTL_DAYS:30}
+    bootstrap:
+      enabled: ${IAM_BOOTSTRAP_ENABLED:false}
+      organization-name: ${IAM_BOOTSTRAP_ORGANIZATION_NAME:}
+      admin-name: ${IAM_BOOTSTRAP_ADMIN_NAME:}
+      admin-email: ${IAM_BOOTSTRAP_ADMIN_EMAIL:}
+      admin-password: ${IAM_BOOTSTRAP_ADMIN_PASSWORD:}
   traceability:
     # Retention Period del Measurement History y de las excursiones (meses).
     retention-months: ${TRACEABILITY_RETENTION_MONTHS:60}

@@ -9,7 +9,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -49,12 +48,6 @@ public class TraceabilityExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     ProblemDetail illegalArgument(IllegalArgumentException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
-    }
-
-    @ExceptionHandler(MissingRequestHeaderException.class)
-    ProblemDetail missingHeader(MissingRequestHeaderException e) {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
-                "Falta la cabecera obligatoria " + e.getHeaderName());
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)

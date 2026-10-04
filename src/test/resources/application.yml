@@ -10,6 +10,10 @@ spring:
       ddl-auto: none
 
 machineguard:
+  iam:
+    jwt-secret: local-test-key-only-not-for-production-at-least-32-bytes
+    access-token-ttl-seconds: 900
+    refresh-token-ttl-days: 30
   traceability:
     retention-months: 12
     retention-purge-enabled: false
