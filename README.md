@@ -98,7 +98,7 @@ Los eventos `DeviationDetected` y `SafeRangeRestored` de Environmental Monitorin
 
 Measurement History se lee mediante `MeasurementHistoryProvider` y su adaptador JDBC de la tabla configurable `measurements`, con las columnas `organization_id`, `monitoring_zone_id`, `monitoring_point_id`, `environmental_variable`, `measured_value` y `recorded_at`. Esa tabla pertenece a Environmental Monitoring; no se crea aquí y aún no existe en el Compose local mientras ese contexto no esté integrado. Por ello, los endpoints de Measurement History responden `503` hasta conectar dicho contexto.
 
-La migración `V4_0__traceability_quality.sql` crea `excursions`, `non_conformities`, `traceability_reports` y `traceability_report_excursions`; `V5__iam.sql` añade las tablas IAM. Traceability usa la identidad autenticada por JWT y no acepta identificadores de usuario u organización enviados por el cliente.
+Las migraciones Flyway se ordenan así: `V1__environmental_monitoring.sql` (zonas, puntos, nodos sensores, umbrales y mediciones), `V2__alert_incident.sql` (incidentes, alertas y acciones correctivas), `V4__traceability_quality.sql` (`excursions`, `non_conformities`, `traceability_reports` y `traceability_report_excursions`) y `V5__iam.sql` (tablas IAM); `V3` queda reservada. Traceability usa la identidad autenticada por JWT y no acepta identificadores de usuario u organización enviados por el cliente.
 
 ## OpenAPI, configuración y pruebas
 
