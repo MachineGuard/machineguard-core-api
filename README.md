@@ -125,3 +125,11 @@ Las migraciones Flyway se ordenan así: `V1__environmental_monitoring.sql` (zona
 - Variables de base de datos: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`. Compose permite configurar los puertos expuestos mediante `API_PORT` (8080 por defecto) y `POSTGRES_PORT` (5432 por defecto).
 - Traceability: `TRACEABILITY_RETENTION_MONTHS` (60), `TRACEABILITY_PURGE_ENABLED` (false), `TRACEABILITY_MEASUREMENTS_TABLE` (`measurements`).
 - Pruebas de integración con H2: `mvn test`.
+
+### Pruebas BDD (Cucumber)
+
+Los criterios de aceptación de las historias del Sprint 1 (TS06, TS07, TS08, US02, US10, US11 y US12) están escritos en Gherkin, en español, en `src/test/resources/features`. Los pasos están en `src/test/java/com/machineguard/platform/acceptance` y se ejecutan contra la API con MockMvc sobre una base H2 propia.
+
+- Toda la batería: `mvn test`. Solo BDD: `mvn test -Dtest=CucumberAcceptanceTest`.
+- Reporte HTML: `target/cucumber-reports/cucumber.html`.
+- GitHub Actions (`.github/workflows/ci.yml`) ejecuta las pruebas en cada push y pull request a `develop` y `main`, y publica el reporte como artefacto.

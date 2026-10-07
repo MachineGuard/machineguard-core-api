@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop, "feature/**", "release/**", "hotfix/**"]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    name: Pruebas unitarias, de integración y BDD
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Ejecutar pruebas (JUnit + Cucumber)
+        run: mvn -B verify
+
+      - name: Publicar reporte Cucumber
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cucumber-report
+          path: target/cucumber-reports/
+          if-no-files-found: ignore
+
+      - name: Publicar reportes de Surefire
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: surefire-reports
+          path: target/surefire-reports/
+          if-no-files-found: ignore
