@@ -78,6 +78,12 @@ Todos los endpoints bajo `/api/v1/environmental-monitoring` requieren JWT. La or
 | GET | `/measurements/history` | Historial por zona y periodo, filtros y paginación | ADMIN/VIEWER |
 | GET | `/zones` | Zonas con puntos, sensores, umbrales y lecturas actuales | ADMIN/VIEWER |
 | GET | `/zones/{id}` | Proyección de una zona del tenant | ADMIN/VIEWER |
+| POST | `/zones` | Registra una Monitoring Zone; devuelve 201, Resource y Location | ADMIN |
+| POST | `/zones/{zoneId}/points` | Registra un Monitoring Point en la zona | ADMIN |
+| POST | `/zones/{zoneId}/points/{pointId}/sensors` | Registra un Sensor Node; `deviceCode` es único | ADMIN |
+| PUT | `/zones/{zoneId}/thresholds/{environmentalVariable}` | Configura o reemplaza el Safe Range (`TEMPERATURE` o `HUMIDITY`) | ADMIN |
+
+Una organización nueva se prepara en este orden: zona, punto, sensor (opcional) y un umbral por variable. `POST /measurements` responde `409` mientras la variable no tenga umbral configurado. Cada configuración de umbral publica `ThresholdConfigured`.
 
 `DeviationDetected` se publica por cada lectura **vigente** fuera de rango, conforme al contrato de Traceability que actualiza el pico de una única excursión abierta. `SafeRangeRestored` se publica una sola vez al volver al rango, siempre que ningún otro punto de esa zona y variable siga desviado. El command service publica a través del port `EnvironmentalMonitoringEventPublisher`; su implementación Spring y el puente de compatibilidad con los records `InboundEvents` existentes están en `infrastructure/integration`. Los detalles, contratos, supuestos, árbol de archivos y cobertura están en [Environmental Monitoring](docs/environmental-monitoring.md).
 
