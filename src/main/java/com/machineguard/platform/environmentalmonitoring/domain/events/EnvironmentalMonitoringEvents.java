@@ -13,4 +13,8 @@ public final class EnvironmentalMonitoringEvents {
     public record SafeRangeRestored(UUID measurementId, UUID organizationId, UUID monitoringZoneId,
             UUID monitoringPointId, UUID sensorNodeId, EnvironmentalVariable environmentalVariable,
             BigDecimal measuredValue, OffsetDateTime recordedAt, OffsetDateTime restoredAt) {}
+
+    public record ThresholdConfigured(UUID thresholdId, UUID organizationId, UUID monitoringZoneId,
+            EnvironmentalVariable environmentalVariable, BigDecimal minimumValue, BigDecimal maximumValue,
+            OffsetDateTime configuredAt) {}
 }

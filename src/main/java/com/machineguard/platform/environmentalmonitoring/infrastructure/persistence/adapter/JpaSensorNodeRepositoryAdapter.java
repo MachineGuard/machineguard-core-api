@@ -19,6 +19,9 @@ public class JpaSensorNodeRepositoryAdapter implements SensorNodeRepository {
 
     @Override
     public SensorNode save(SensorNode node) { return repository.save(node); }
+
+    @Override
+    public boolean existsByDeviceCode(String deviceCode) { return repository.existsByDeviceCode(deviceCode); }
     @Override
     public Optional<SensorNode> findByIdAndMonitoringPointId(UUID id, UUID monitoringPointId) {
         return repository.findByIdAndMonitoringPointId(id, monitoringPointId);

@@ -8,6 +8,7 @@ import java.util.Collection;
 
 public interface SensorNodeRepository {
     SensorNode save(SensorNode node);
+    boolean existsByDeviceCode(String deviceCode);
     Optional<SensorNode> findByIdAndMonitoringPointId(UUID id, UUID monitoringPointId);
     List<SensorNode> findByMonitoringPointIdIn(Collection<UUID> pointIds);
 }
