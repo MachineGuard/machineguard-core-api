@@ -1,6 +1,6 @@
 # MachineGuard Core API
 
-REST API central de MachineGuard con los bounded contexts **IAM** y **Traceability & Quality**, desarrollada con Spring Boot 3.5, Spring Security, Spring Data JPA, Flyway y PostgreSQL. Los identificadores son UUID. La documentación OpenAPI y Swagger UI se sirven desde la propia API.
+REST API central de MachineGuard con los bounded contexts **IAM**, **Environmental Monitoring** y **Traceability & Quality**, desarrollada con Spring Boot 3.5, Spring Security, Spring Data JPA, Flyway y PostgreSQL. Los identificadores son UUID. La documentación OpenAPI y Swagger UI se sirven desde la propia API.
 
 ## Inicio local con Docker Compose
 
@@ -64,6 +64,23 @@ No hay un endpoint público para crear organizaciones. IAM recibe `PilotRequestS
 
 Los endpoints IAM protegidos y todos los de Traceability requieren `Authorization: Bearer <accessToken>`. Traceability obtiene `userId`, `organizationId` y rol de los claims JWT firmados; ignora las cabeceras `X-Organization-Id` y `X-User-Id`. Solo `ADMIN` puede crear reportes o registrar/cambiar disposiciones de no conformidades; `VIEWER` solo puede consultar. El filtro valida la firma y expiración del token en cada solicitud, pero no consulta la base de datos. Un access token activo puede seguir aceptándose hasta expirar; `/api/v1/auth/validate` también comprueba el estado actual de la sesión, el usuario y la organización.
 
+## Environmental Monitoring
+
+Implementado en `com.machineguard.platform.environmentalmonitoring` con las mismas capas de Traceability: entidades de dominio JPA, repositories de dominio, commands/queries con servicios `handle`, eventos Spring, Resources y Assemblers. Los cinco contratos de repositories permanecen en el dominio; sus adapters explícitos en `infrastructure/persistence/adapter` delegan en repositories JPA técnicos. Los servicios no construyen consultas JPA. Reutiliza V1 sin modificarla. Cada medición corresponde a **una variable**, con `BigDecimal` y `OffsetDateTime`.
+
+Todos los endpoints bajo `/api/v1/environmental-monitoring` requieren JWT. La organización proviene del token firmado; las cabeceras `X-Organization-Id` y `X-User-Id` no determinan el tenant.
+
+| Método | Ruta relativa | Descripción | Acceso |
+|---|---|---|---|
+| POST | `/measurements` | Registra una medición; devuelve 201, Resource y Location | ADMIN |
+| GET | `/measurements/{id}` | Consulta una medición del tenant | ADMIN/VIEWER |
+| GET | `/measurements/latest` | Última lectura por punto y variable; zona opcional | ADMIN/VIEWER |
+| GET | `/measurements/history` | Historial por zona y periodo, filtros y paginación | ADMIN/VIEWER |
+| GET | `/zones` | Zonas con puntos, sensores, umbrales y lecturas actuales | ADMIN/VIEWER |
+| GET | `/zones/{id}` | Proyección de una zona del tenant | ADMIN/VIEWER |
+
+`DeviationDetected` se publica por cada lectura **vigente** fuera de rango, conforme al contrato de Traceability que actualiza el pico de una única excursión abierta. `SafeRangeRestored` se publica una sola vez al volver al rango, siempre que ningún otro punto de esa zona y variable siga desviado. El command service publica a través del port `EnvironmentalMonitoringEventPublisher`; su implementación Spring y el puente de compatibilidad con los records `InboundEvents` existentes están en `infrastructure/integration`. Los detalles, contratos, supuestos, árbol de archivos y cobertura están en [Environmental Monitoring](docs/environmental-monitoring.md).
+
 ## Traceability & Quality
 
 Toda consulta filtra por el `organizationId` autenticado. Los endpoints principales bajo `/api/v1/traceability` son:
@@ -96,7 +113,7 @@ Toda consulta filtra por el `organizationId` autenticado. Los endpoints principa
 
 Los eventos `DeviationDetected` y `SafeRangeRestored` de Environmental Monitoring e `IncidentResolved` de Alert & Incident Management se reciben como eventos Spring dentro del proceso de la API. Traceability publica `ExcursionStarted`, `ExcursionEnded` y `TraceabilityReportGenerated`.
 
-Measurement History se lee mediante `MeasurementHistoryProvider` y su adaptador JDBC de la tabla configurable `measurements`, con las columnas `organization_id`, `monitoring_zone_id`, `monitoring_point_id`, `environmental_variable`, `measured_value` y `recorded_at`. Esa tabla pertenece a Environmental Monitoring; no se crea aquí y aún no existe en el Compose local mientras ese contexto no esté integrado. Por ello, los endpoints de Measurement History responden `503` hasta conectar dicho contexto.
+Measurement History se lee mediante `MeasurementHistoryProvider` y su adaptador JDBC de la tabla configurable `measurements`, con las columnas `organization_id`, `monitoring_zone_id`, `monitoring_point_id`, `environmental_variable`, `measured_value` y `recorded_at`. Esa tabla pertenece a Environmental Monitoring y está creada por V1. Environmental Monitoring ya registra mediciones en ella; el adaptador JDBC existente las consume sin cambios en Traceability. Un `503` indica que la tabla configurada no está disponible.
 
 Las migraciones Flyway se ordenan así: `V1__environmental_monitoring.sql` (zonas, puntos, nodos sensores, umbrales y mediciones), `V2__alert_incident.sql` (incidentes, alertas y acciones correctivas), `V4__traceability_quality.sql` (`excursions`, `non_conformities`, `traceability_reports` y `traceability_report_excursions`) y `V5__iam.sql` (tablas IAM); `V3` queda reservada. Traceability usa la identidad autenticada por JWT y no acepta identificadores de usuario u organización enviados por el cliente.
 
