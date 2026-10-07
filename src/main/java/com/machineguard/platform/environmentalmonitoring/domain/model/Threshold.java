@@ -45,6 +45,16 @@ public class Threshold {
         return result;
     }
 
+    public Threshold reconfigure(BigDecimal minimumValue, BigDecimal maximumValue, OffsetDateTime now) {
+        BigDecimal minimum = NumericValue.exact(minimumValue);
+        BigDecimal maximum = NumericValue.exact(maximumValue);
+        if (minimum.compareTo(maximum) >= 0) throw new EnvironmentalMonitoringRuleException("Minimum must be below maximum");
+        this.minimumValue = minimum;
+        this.maximumValue = maximum;
+        this.updatedAt = now;
+        return this;
+    }
+
     public UUID getId() { return id; }
     public UUID getMonitoringZoneId() { return monitoringZoneId; }
     public EnvironmentalVariable getEnvironmentalVariable() { return environmentalVariable; }
