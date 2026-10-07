@@ -40,6 +40,18 @@ Se requiere Java 21 y Maven. Configura `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` e 
 mvn spring-boot:run
 ```
 
+## Datos de demostración
+
+`scripts/demo_data.py` prepara una organización para una demostración usando solo la API REST (Python 3.8+, sin dependencias). Lee `MG_API_URL` (por defecto `http://localhost:8080`), `MG_ADMIN_EMAIL` y `MG_ADMIN_PASSWORD`; con `MG_VIEWER_EMAIL` y `MG_VIEWER_PASSWORD` crea además un usuario `VIEWER`. Las credenciales nunca se escriben en el repositorio.
+
+| Comando | Qué hace |
+|---|---|
+| `python scripts/demo_data.py seed` | Crea tres zonas (dos completas y una a medio configurar), sus puntos, sensores y Safe Ranges, y carga 24 h de mediciones con una excursión ya cerrada. Se puede repetir: no duplica nada. |
+| `python scripts/demo_data.py live` | Publica una medición por sensor cada minuto, como si los nodos estuvieran instalados. Pensado para dejarlo corriendo en el servidor. |
+| `python scripts/demo_data.py excursion` | Saca la cámara fría de su Safe Range durante unos minutos y la devuelve, para mostrar la apertura y el cierre de una excursión. |
+
+Mientras `live` está activo, una medición fuera de rango (enviada con `excursion` o desde Swagger) se respeta durante cinco minutos antes de que las lecturas normales la restablezcan.
+
 ## IAM
 
 El acceso usa JWT HMAC-SHA256 con `userId` en `sub`, `organizationId`, `role` (`ADMIN`/`VIEWER`) y `sid`; la duración por defecto es 15 minutos. Las claves y contraseñas se leen del entorno. Cada sesión conserva el hash SHA-256 del refresh token. El refresh rota el token y conserva los hashes consumidos para rechazar su reutilización y revocar esa sesión. Al cambiar contraseña o desactivar a un usuario, se revocan sus sesiones renovables.
