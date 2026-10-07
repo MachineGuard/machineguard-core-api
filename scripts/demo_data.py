@@ -8,11 +8,12 @@ Commands:
 
 Configuration (environment variables):
   MG_API_URL          Core API base URL (default http://localhost:8080)
-  MG_ADMIN_EMAIL      ADMIN user that owns the demo data (required)
-  MG_ADMIN_PASSWORD   Its password (required)
+  MG_ADMIN_EMAIL      ADMIN user that owns the demo data (default: IAM_BOOTSTRAP_ADMIN_EMAIL)
+  MG_ADMIN_PASSWORD   Its password (default: IAM_BOOTSTRAP_ADMIN_PASSWORD)
   MG_VIEWER_EMAIL     Optional read-only user to create during seed
   MG_VIEWER_PASSWORD  Its password (at least 12 characters)
 
+Values missing from the environment are read from a .env file in the current directory.
 Safe to run more than once: existing zones, points, sensors and readings are reused, never duplicated.
 Requires Python 3.8+ and no third-party packages.
 """
@@ -48,13 +49,25 @@ PROFILES = {
 EXCURSION_CURVE = [8.6, 9.8, 11.2, 10.4, 9.1]
 
 
+def load_env_file(path=".env"):
+    """Fills in settings from the deployment's .env; variables already exported win."""
+    if not os.path.isfile(path):
+        return
+    with open(path, encoding="utf-8") as lines:
+        for line in lines:
+            key, separator, value = line.strip().partition("=")
+            if separator and key and not key.startswith("#"):
+                os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
 class Api:
     def __init__(self):
         self.base = os.environ.get("MG_API_URL", "http://localhost:8080").rstrip("/")
-        self.email = os.environ.get("MG_ADMIN_EMAIL")
-        self.password = os.environ.get("MG_ADMIN_PASSWORD")
+        # The demo is owned by the administrator that IAM bootstrapped, unless another one is named.
+        self.email = os.environ.get("MG_ADMIN_EMAIL") or os.environ.get("IAM_BOOTSTRAP_ADMIN_EMAIL")
+        self.password = os.environ.get("MG_ADMIN_PASSWORD") or os.environ.get("IAM_BOOTSTRAP_ADMIN_PASSWORD")
         if not self.email or not self.password:
-            sys.exit("Set MG_ADMIN_EMAIL and MG_ADMIN_PASSWORD before running this script.")
+            sys.exit("Set MG_ADMIN_EMAIL and MG_ADMIN_PASSWORD (or the IAM_BOOTSTRAP_ADMIN_* pair in .env).")
         self.token = None
         self.organization_id = None
 
@@ -247,6 +260,7 @@ def main():
     breaking.add_argument("--step-seconds", type=int, default=20)
     args = parser.parse_args()
 
+    load_env_file()
     api = Api()
     try:
         api.login()
