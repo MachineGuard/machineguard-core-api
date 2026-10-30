@@ -7,17 +7,20 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
-/** Un incidente solo puede resolverse si existe al menos una accion correctiva registrada. */
+/** Formal resolution requires corrective evidence and a recovered environmental condition. */
 @Component
 public class IncidentResolutionService {
 
     private static final int MAX_SUMMARY_LENGTH = 1000;
 
-    public void ensureResolvable(Incident incident, List<CorrectiveAction> actions) {
+    public void ensureResolvable(Incident incident, List<CorrectiveAction> actions, boolean withinSafeRange) {
         incident.requireUnresolved("resolverlo");
         if (actions.isEmpty()) {
             throw new AlertIncidentRuleException(
                     "El incidente " + incident.getId() + " no puede resolverse sin una accion correctiva registrada");
+        }
+        if (!withinSafeRange) {
+            throw new AlertIncidentRuleException("La zona debe volver al rango seguro antes de resolver el incidente");
         }
     }
 

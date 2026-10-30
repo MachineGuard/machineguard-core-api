@@ -32,7 +32,7 @@ public class RegisterCorrectiveActionCommandService {
     /** Toda accion correctiva queda asociada al incidente que la origino, siempre que este no este resuelto. */
     @Transactional
     public CorrectiveAction handle(RegisterCorrectiveActionCommand command) {
-        Incident incident = incidents.findByIdAndOrganizationId(command.incidentId(), command.organizationId())
+        Incident incident = incidents.lockByIdAndOrganizationId(command.incidentId(), command.organizationId())
                 .orElseThrow(() -> new AlertIncidentNotFoundException("Incidente " + command.incidentId() + " no encontrado"));
         incident.requireUnresolved("registrar una accion correctiva");
         CorrectiveAction action = actions.save(CorrectiveAction.register(incident.getId(), command.description(),

@@ -31,6 +31,10 @@ public final class InboundEvents {
      */
     public record IncidentResolved(UUID organizationId, UUID incidentId, UUID monitoringZoneId,
                                    EnvironmentalVariable environmentalVariable, String correctiveAction,
-                                   Instant resolvedAt) {
+                                   Instant resolvedAt, Instant openedAt) {
+        public IncidentResolved(UUID organizationId, UUID incidentId, UUID monitoringZoneId,
+                                EnvironmentalVariable environmentalVariable, String correctiveAction, Instant resolvedAt) {
+            this(organizationId, incidentId, monitoringZoneId, environmentalVariable, correctiveAction, resolvedAt, null);
+        }
     }
 }

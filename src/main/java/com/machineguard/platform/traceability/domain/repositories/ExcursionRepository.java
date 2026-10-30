@@ -14,6 +14,16 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface ExcursionRepository extends JpaRepository<Excursion, UUID>, JpaSpecificationExecutor<Excursion> {
+    /** All physical episodes covered by the incident's lifetime, including recoveries before formal resolution. */
+    @Query("""
+            select e from Excursion e
+            where e.organizationId = :organizationId and e.monitoringZoneId = :zoneId
+              and e.environmentalVariable = :variable and e.incidentId is null
+              and e.startedAt >= :openedAt and e.startedAt <= :resolvedAt
+            order by e.startedAt
+            """)
+    List<Excursion> findUnlinkedInIncidentPeriod(UUID organizationId, UUID zoneId, EnvironmentalVariable variable,
+                                                Instant openedAt, Instant resolvedAt);
 
     Optional<Excursion> findByIdAndOrganizationId(UUID id, UUID organizationId);
 

@@ -41,6 +41,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/incidents")
 @Tag(name = "Incidents", description = "Incidentes ambientales, acciones correctivas y resolucion")
 @SecurityRequirement(name = "bearerAuth")
+@PreAuthorize("hasAnyRole('ADMIN','VIEWER')")
 public class IncidentController {
 
     private static final int MAX_LIMIT = 500;
@@ -95,7 +96,7 @@ public class IncidentController {
 
     @PostMapping("/{incidentId}/resolve")
     @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Resuelve el incidente (exige una accion correctiva) y lo comunica a Traceability and Quality")
+    @Operation(summary = "Resuelve el incidente con accion correctiva y rango seguro, y lo comunica a Traceability and Quality")
     public IncidentResource resolve(@AuthenticationPrincipal IamPrincipal principal, @PathVariable UUID incidentId,
                                     @Valid @RequestBody(required = false) ResolveIncidentResource body) {
         String notes = body == null ? null : body.notes();

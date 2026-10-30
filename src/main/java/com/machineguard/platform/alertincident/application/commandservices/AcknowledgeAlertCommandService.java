@@ -38,10 +38,11 @@ public class AcknowledgeAlertCommandService {
      */
     @Transactional
     public Acknowledgement handle(AcknowledgeAlertCommand command) {
-        Alert alert = alerts.findById(command.alertId())
+        var incidentId = alerts.findIncidentIdById(command.alertId())
                 .orElseThrow(() -> new AlertIncidentNotFoundException("Alerta " + command.alertId() + " no encontrada"));
-        Incident incident = incidents.findByIdAndOrganizationId(alert.getIncidentId(), command.organizationId())
+        Incident incident = incidents.lockByIdAndOrganizationId(incidentId, command.organizationId())
                 .orElseThrow(() -> new AlertIncidentNotFoundException("Alerta " + command.alertId() + " no encontrada"));
+        Alert alert = alerts.findById(command.alertId()).orElseThrow();
         var now = clock.instant();
         alert.acknowledge(command.acknowledgedBy(), command.note(), now);
         incident.acknowledge();

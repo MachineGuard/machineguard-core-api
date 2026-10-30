@@ -26,6 +26,6 @@ public class TraceabilityIncidentEventAdapter {
         EnvironmentalVariable variable = event.environmentalVariable() == null ? null
                 : EnvironmentalVariable.valueOf(event.environmentalVariable().name());
         publisher.publishEvent(new InboundEvents.IncidentResolved(event.organizationId(), event.incidentId(),
-                event.monitoringZoneId(), variable, event.correctiveAction(), event.resolvedAt()));
+                event.monitoringZoneId(), variable, event.correctiveAction(), event.resolvedAt(), event.openedAt()));
     }
 }

@@ -116,11 +116,58 @@ class AlertIncidentFlowIntegrationTest {
     }
     long count(String table) { return jdbc.queryForObject("SELECT count(*) FROM " + table, Long.class); }
 
+    @Test void realLoginAndIngestionProduceATenantScopedAlertAndCompleteTheLifecycle() throws Exception {
+        JsonNode origin = measurement(point, 600, 11);
+        String incident = incidentId(), alert = alertId();
+        assertEquals(origin.get("id").asText(), incidents().get(0).get("originMeasurementId").asText());
+        assertEquals(zone.toString(), send(get("/api/v1/alerts/" + alert), viewer, null, 200)
+                .get("monitoringZoneId").asText());
+        send(post(resolveUrl(incident)), admin, null, 409);
+        JsonNode acknowledgement = send(post("/api/v1/alerts/" + alert + "/acknowledgements"), admin,
+                Map.of("note", "Attending", "acknowledgedBy", new UUID(0, 999)), 201);
+        assertEquals(ADMIN.toString(), acknowledgement.get("acknowledgedBy").asText());
+        action(incident);
+        send(post(resolveUrl(incident)), admin, null, 409);
+        measurement(point, 500, 5);
+        assertEquals("ACKNOWLEDGED", incidents().get(0).get("status").asText());
+        send(post(resolveUrl(incident)), admin, null, 200);
+        JsonNode detail = send(get("/api/v1/incidents/" + incident), admin, null, 200);
+        assertEquals("CLOSED", detail.get("alert").get("status").asText());
+        assertEquals(ADMIN.toString(), detail.get("correctiveActions").get(0).get("performedBy").asText());
+        assertEquals(ADMIN.toString(), detail.get("incident").get("resolvedBy").asText());
+        send(post("/api/v1/alerts/" + alert + "/acknowledgements"), admin, null, 409);
+    }
 
+    @Test void everyPointMustRecoverBeforeFormalResolution() throws Exception {
+        UUID second = addPoint("Point B");
+        measurement(point, 600, 11); measurement(second, 590, 12);
+        String incident = incidentId(); action(incident);
+        measurement(point, 580, 5);
+        send(post(resolveUrl(incident)), admin, null, 409);
+        measurement(second, 570, 5);
+        assertEquals("OPEN", incidents().get(0).get("status").asText());
+        send(post(resolveUrl(incident)), admin, null, 200);
+    }
 
-
-
-
+    @Test void recoveryAndRelapseKeepOneIncidentLinkAllExcursionsAndRememberAbsorbedReadings() throws Exception {
+        measurement(point, 600, 11);
+        JsonNode absorbed = measurement(point, 590, 12);
+        String incident = incidentId();
+        measurement(point, 580, 5); measurement(point, 570, 10); measurement(point, 560, 5);
+        assertEquals(1, incidents().size()); assertEquals(2, count("excursions"));
+        action(incident); send(post(resolveUrl(incident)), admin, null, 200);
+        JsonNode excursions = send(get("/api/v1/traceability/excursions"), admin, null, 200);
+        for (JsonNode excursion : excursions) {
+            assertEquals("CLOSED", excursion.get("status").asText());
+            assertEquals(incident, excursion.get("incidentId").asText());
+        }
+        var replay = generation.handle(new RaiseAlertCommand(UUID.fromString(absorbed.get("id").asText()), ORG, zone,
+                EnvironmentalVariable.TEMPERATURE, new BigDecimal("12"), new BigDecimal("2"), new BigDecimal("8"), NOW.minusSeconds(590)));
+        assertEquals(incident, replay.incidentId().toString()); assertFalse(replay.created());
+        assertEquals(1, count("incidents")); assertEquals(1, count("alerts"));
+        measurement(point, 550, 11);
+        assertEquals(2, count("incidents")); assertEquals(2, count("alerts"));
+    }
 
     @Test void failedAlertGenerationRollsBackMeasurementIncidentAlertReceiptAndExcursion() throws Exception {
         failing.enabled = true;
@@ -134,7 +181,33 @@ class AlertIncidentFlowIntegrationTest {
         assertEquals(1, count("incidents")); assertEquals(1, count("alerts"));
     }
 
-
+    @Test void allRoutesEnforceRolesOrganizationAndValidatedIdentity() throws Exception {
+        measurement(point, 600, 11);
+        String incident = incidentId(), alert = alertId();
+        for (String route : List.of("/api/v1/alerts", "/api/v1/alerts/" + alert,
+                "/api/v1/incidents", "/api/v1/incidents/" + incident)) {
+            send(get(route), null, null, 401); send(get(route), viewer, null, 200);
+        }
+        assertEquals(0, send(get("/api/v1/alerts").header("X-Organization-Id", ORG), other, null, 200).size());
+        assertEquals(0, send(get("/api/v1/incidents").header("X-Organization-Id", ORG), other, null, 200).size());
+        send(get("/api/v1/alerts/" + alert), other, null, 404);
+        send(get("/api/v1/incidents/" + incident), other, null, 404);
+        for (String route : List.of("/api/v1/alerts/" + alert + "/acknowledgements",
+                "/api/v1/incidents/" + incident + "/corrective-actions", resolveUrl(incident))) {
+            Object body = route.endsWith("corrective-actions") ? Map.of("description", "Attempt") : Map.of();
+            send(post(route), null, body, 401); send(post(route), viewer, body, 403);
+            send(post(route).header("X-Organization-Id", ORG).header("X-User-Id", ADMIN), other, body, 404);
+        }
+        String raw = admin.substring("Bearer ".length());
+        int signature = raw.lastIndexOf('.') + 1;
+        char changed = raw.charAt(signature) == 'A' ? 'B' : 'A';
+        String tampered = "Bearer " + raw.substring(0, signature) + changed + raw.substring(signature + 1);
+        send(get("/api/v1/alerts"), tampered, null, 401);
+        JsonNode openapi = send(get("/v3/api-docs"), null, null, 200);
+        assertTrue(openapi.get("components").get("securitySchemes").has("bearerAuth"));
+        assertTrue(openapi.get("paths").has("/api/v1/alerts/{alertId}/acknowledgements"));
+        assertTrue(openapi.get("components").get("schemas").get("IncidentResource").get("properties").has("originMeasurementId"));
+    }
 
     int concurrentPost(String url, CountDownLatch ready, CountDownLatch start) throws Exception {
         ready.countDown(); assertTrue(start.await(10, TimeUnit.SECONDS));
@@ -149,8 +222,17 @@ class AlertIncidentFlowIntegrationTest {
             return java.util.stream.Stream.of(first.get(20, TimeUnit.SECONDS), second.get(20, TimeUnit.SECONDS)).sorted().toList();
         }
     }
-
-
+    @Test void concurrentAcknowledgementsPreserveTheFirstActorAndOnlyOneSucceeds() throws Exception {
+        measurement(point, 600, 11);
+        assertEquals(List.of(201, 409), race("/api/v1/alerts/" + alertId() + "/acknowledgements"));
+        assertEquals(ADMIN, jdbc.queryForObject("SELECT acknowledged_by FROM alerts", UUID.class));
+    }
+    @Test void concurrentResolutionsCloseOnceAndRejectLaterActions() throws Exception {
+        measurement(point, 600, 11); String incident = incidentId(); action(incident); measurement(point, 590, 5);
+        assertEquals(List.of(200, 409), race(resolveUrl(incident)));
+        send(post("/api/v1/incidents/" + incident + "/corrective-actions"), admin, Map.of("description", "Too late"), 409);
+        assertEquals(1, count("corrective_actions"));
+    }
 
     @Test void simultaneousDeviationsFromTwoPointsCreateOnlyOneIncidentAndAlert() throws Exception {
         UUID second = addPoint("Point B");

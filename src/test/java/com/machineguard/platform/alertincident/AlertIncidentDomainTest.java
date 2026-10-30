@@ -124,8 +124,10 @@ class AlertIncidentDomainTest {
     void incidentCannotBeResolvedWithoutACorrectiveAction() {
         IncidentResolutionService resolution = new IncidentResolutionService();
         Incident incident = openIncident();
-        assertThrows(AlertIncidentRuleException.class, () -> resolution.ensureResolvable(incident, List.of()));
-        resolution.ensureResolvable(incident, List.of(action(incident)));
+        assertThrows(AlertIncidentRuleException.class, () -> resolution.ensureResolvable(incident, List.of(), true));
+        assertThrows(AlertIncidentRuleException.class,
+                () -> resolution.ensureResolvable(incident, List.of(action(incident)), false));
+        resolution.ensureResolvable(incident, List.of(action(incident)), true);
     }
 
     @Test

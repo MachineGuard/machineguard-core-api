@@ -1,6 +1,7 @@
 package com.machineguard.platform.alertincident.application.commandservices;
 
 import com.machineguard.platform.alertincident.application.ports.AlertIncidentEventPublisher;
+import com.machineguard.platform.alertincident.application.ports.EnvironmentalConditionProvider;
 import com.machineguard.platform.alertincident.domain.commands.AlertIncidentCommands.ResolveIncidentCommand;
 import com.machineguard.platform.alertincident.domain.events.AlertIncidentEvents.IncidentResolved;
 import com.machineguard.platform.alertincident.domain.exceptions.AlertIncidentNotFoundException;
@@ -26,28 +27,34 @@ public class ResolveIncidentCommandService {
     private final IncidentResolutionService resolution;
     private final AlertIncidentEventPublisher events;
     private final Clock clock;
+    private final EnvironmentalConditionProvider environment;
 
     public ResolveIncidentCommandService(IncidentRepository incidents, AlertRepository alerts,
                                          CorrectiveActionRepository actions, IncidentResolutionService resolution,
-                                         AlertIncidentEventPublisher events, Clock clock) {
+                                         AlertIncidentEventPublisher events, Clock clock, EnvironmentalConditionProvider environment) {
         this.incidents = incidents;
         this.alerts = alerts;
         this.actions = actions;
         this.resolution = resolution;
         this.events = events;
         this.clock = clock;
+        this.environment = environment;
     }
 
     /**
-     * Cierra formalmente el incidente (exige al menos una accion correctiva), cierra su alerta y publica
+     * Exige una accion correctiva y las ultimas mediciones de la zona dentro del rango seguro, cierra su alerta y publica
      * IncidentResolved, que Traceability and Quality consume en la misma transaccion para vincular y cerrar la excursion.
      */
     @Transactional
     public Incident handle(ResolveIncidentCommand command) {
-        Incident incident = incidents.findByIdAndOrganizationId(command.incidentId(), command.organizationId())
+        var zoneId = incidents.findZoneIdByIdAndOrganizationId(command.incidentId(), command.organizationId())
+                .orElseThrow(() -> new AlertIncidentNotFoundException("Incident not found"));
+        environment.lockZone(command.organizationId(), zoneId);
+        Incident incident = incidents.lockByIdAndOrganizationId(command.incidentId(), command.organizationId())
                 .orElseThrow(() -> new AlertIncidentNotFoundException("Incidente " + command.incidentId() + " no encontrado"));
         List<CorrectiveAction> performed = actions.findByIncidentId(incident.getId());
-        resolution.ensureResolvable(incident, performed);
+        resolution.ensureResolvable(incident, performed, environment.isWithinSafeRange(command.organizationId(),
+                zoneId, incident.getEnvironmentalVariable()));
 
         Instant now = clock.instant();
         incident.resolve(command.resolvedBy(), command.notes(), now);
@@ -58,7 +65,7 @@ public class ResolveIncidentCommandService {
         });
         events.publish(new IncidentResolved(incident.getId(), incident.getOriginMeasurementId(), incident.getOrganizationId(),
                 incident.getMonitoringZoneId(), incident.getEnvironmentalVariable(), resolution.summarize(performed),
-                incident.getResolvedAt()));
+                incident.getResolvedAt(), incident.getOpenedAt()));
         return incident;
     }
 }
