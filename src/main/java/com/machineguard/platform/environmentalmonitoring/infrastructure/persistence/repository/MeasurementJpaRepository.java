@@ -7,6 +7,8 @@ import java.util.*;
 public interface MeasurementJpaRepository extends JpaRepository<Measurement, UUID>, JpaSpecificationExecutor<Measurement> {
     boolean existsByOrganizationIdAndMonitoringPointIdAndEnvironmentalVariableAndRecordedAt(UUID organizationId, UUID monitoringPointId, EnvironmentalVariable environmentalVariable, java.time.OffsetDateTime recordedAt);
     Optional<Measurement> findByIdAndOrganizationId(UUID id, UUID organizationId);
+    Optional<Measurement> findByOrganizationIdAndMonitoringPointIdAndEnvironmentalVariableAndRecordedAt(
+            UUID organizationId, UUID monitoringPointId, EnvironmentalVariable environmentalVariable, java.time.OffsetDateTime recordedAt);
     Optional<Measurement> findFirstByOrganizationIdAndMonitoringPointIdAndEnvironmentalVariableOrderByRecordedAtDesc(UUID organizationId, UUID monitoringPointId, EnvironmentalVariable environmentalVariable);
     @Query("""
             select m from Measurement m where m.organizationId = :organizationId

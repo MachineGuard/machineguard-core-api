@@ -26,6 +26,7 @@ public class MonitoringConditionAdapter implements EnvironmentalConditionProvide
                 .orElseThrow(() -> new AlertIncidentNotFoundException("Monitoring zone not found"));
     }
     public boolean isWithinSafeRange(UUID organizationId, UUID monitoringZoneId, EnvironmentalVariable variable) {
+        if (variable == null) return false;
         var producerVariable = com.machineguard.platform.environmentalmonitoring.domain.model.EnvironmentalVariable
                 .valueOf(variable.name());
         var threshold = thresholds.findByMonitoringZoneIdAndEnvironmentalVariable(monitoringZoneId, producerVariable);

@@ -1,6 +1,7 @@
 package com.machineguard.platform.alertincident.application.queryservices;
 
 import com.machineguard.platform.alertincident.domain.exceptions.AlertIncidentNotFoundException;
+import com.machineguard.platform.alertincident.application.ports.EnvironmentalConditionProvider;
 import com.machineguard.platform.alertincident.domain.model.Alert;
 import com.machineguard.platform.alertincident.domain.model.CorrectiveAction;
 import com.machineguard.platform.alertincident.domain.model.Incident;
@@ -21,15 +22,19 @@ public class IncidentQueryService {
     private final IncidentRepository incidents;
     private final AlertRepository alerts;
     private final CorrectiveActionRepository actions;
+    private final EnvironmentalConditionProvider environment;
 
-    public IncidentQueryService(IncidentRepository incidents, AlertRepository alerts, CorrectiveActionRepository actions) {
+    public IncidentQueryService(IncidentRepository incidents, AlertRepository alerts, CorrectiveActionRepository actions,
+                                EnvironmentalConditionProvider environment) {
         this.incidents = incidents;
         this.alerts = alerts;
         this.actions = actions;
+        this.environment = environment;
     }
 
     /** Incidente con su alerta (reconocimiento incluido) y las acciones correctivas registradas. */
-    public record IncidentDetail(Incident incident, Alert alert, List<CorrectiveAction> correctiveActions) {
+    public record IncidentDetail(Incident incident, Alert alert, List<CorrectiveAction> correctiveActions,
+                                 boolean withinSafeRange) {
     }
 
     public List<Incident> handle(GetIncidentHistoryQuery query) {
@@ -41,6 +46,7 @@ public class IncidentQueryService {
         Incident incident = incidents.findByIdAndOrganizationId(query.incidentId(), query.organizationId())
                 .orElseThrow(() -> new AlertIncidentNotFoundException("Incidente " + query.incidentId() + " no encontrado"));
         return new IncidentDetail(incident, alerts.findByIncidentId(incident.getId()).orElse(null),
-                actions.findByIncidentId(incident.getId()));
+                actions.findByIncidentId(incident.getId()), environment.isWithinSafeRange(query.organizationId(),
+                        incident.getMonitoringZoneId(), incident.getEnvironmentalVariable()));
     }
 }

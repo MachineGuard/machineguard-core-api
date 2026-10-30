@@ -48,7 +48,8 @@ public final class AlertIncidentResources {
     @JsonInclude(JsonInclude.Include.ALWAYS)
     public record IncidentDetailResource(IncidentResource incident, AlertResource alert,
                                          AcknowledgementResource acknowledgement,
-                                         List<CorrectiveActionResource> correctiveActions) {
+                                         List<CorrectiveActionResource> correctiveActions,
+                                         boolean withinSafeRange, boolean resolutionAllowed) {
     }
 
     /** Resultado del reconocimiento: la alerta y el incidente quedan en su nuevo estado. */

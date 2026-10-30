@@ -227,6 +227,17 @@ class AlertIncidentFlowIntegrationTest {
         assertEquals(List.of(201, 409), race("/api/v1/alerts/" + alertId() + "/acknowledgements"));
         assertEquals(ADMIN, jdbc.queryForObject("SELECT acknowledged_by FROM alerts", UUID.class));
     }
+    @Test void detailExplainsRecoveryAndResolutionEligibilityWithoutGrantingViewerWrites() throws Exception {
+        measurement(point, 600, 11); String incident=incidentId();
+        var unsafe=send(get("/api/v1/incidents/"+incident),admin,null,200);
+        assertFalse(unsafe.get("withinSafeRange").asBoolean()); assertFalse(unsafe.get("resolutionAllowed").asBoolean());
+        action(incident); measurement(point,590,5);
+        var ready=send(get("/api/v1/incidents/"+incident),admin,null,200);
+        assertTrue(ready.get("withinSafeRange").asBoolean()); assertTrue(ready.get("resolutionAllowed").asBoolean());
+        assertFalse(send(get("/api/v1/incidents/"+incident),viewer,null,200).get("resolutionAllowed").asBoolean());
+        send(post(resolveUrl(incident)),admin,null,200);
+        assertFalse(send(get("/api/v1/incidents/"+incident),admin,null,200).get("resolutionAllowed").asBoolean());
+    }
     @Test void concurrentResolutionsCloseOnceAndRejectLaterActions() throws Exception {
         measurement(point, 600, 11); String incident = incidentId(); action(incident); measurement(point, 590, 5);
         assertEquals(List.of(200, 409), race(resolveUrl(incident)));
