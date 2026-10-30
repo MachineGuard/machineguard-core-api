@@ -133,7 +133,33 @@ Los eventos `DeviationDetected` y `SafeRangeRestored` de Environmental Monitorin
 
 Measurement History se lee mediante `MeasurementHistoryProvider` y su adaptador JDBC de la tabla configurable `measurements`, con las columnas `organization_id`, `monitoring_zone_id`, `monitoring_point_id`, `environmental_variable`, `measured_value` y `recorded_at`. Esa tabla pertenece a Environmental Monitoring y está creada por V1. Environmental Monitoring ya registra mediciones en ella; el adaptador JDBC existente las consume sin cambios en Traceability. Un `503` indica que la tabla configurada no está disponible.
 
-Las migraciones Flyway se ordenan así: `V1__environmental_monitoring.sql` (zonas, puntos, nodos sensores, umbrales y mediciones), `V2__alert_incident.sql` (incidentes, alertas y acciones correctivas), `V4__traceability_quality.sql` (`excursions`, `non_conformities`, `traceability_reports` y `traceability_report_excursions`) y `V5__iam.sql` (tablas IAM); `V3` queda reservada. Traceability usa la identidad autenticada por JWT y no acepta identificadores de usuario u organización enviados por el cliente.
+Las migraciones Flyway se ordenan así: `V1__environmental_monitoring.sql` (zonas, puntos, nodos sensores, umbrales y mediciones), `V2__alert_incident.sql` (incidentes, alertas y acciones correctivas), `V4__traceability_quality.sql` (`excursions`, `non_conformities`, `traceability_reports` y `traceability_report_excursions`), `V5__iam.sql` (tablas IAM) y `V6__incident_lifecycle.sql` (completa V2 con lo que necesita el ciclo de vida del incidente); `V3` queda reservada. Traceability usa la identidad autenticada por JWT y no acepta identificadores de usuario u organización enviados por el cliente.
+
+## Alert & Incident Management
+
+Ciclo de vida del incidente originado por una desviación: apertura, reconocimiento de la alerta, acciones correctivas y resolución. Toda operación se limita a la organización del JWT; los endpoints de escritura exigen `ADMIN` y el responsable queda registrado con el `userId` autenticado.
+
+| Método | Ruta | Descripción | Acceso |
+|---|---|---|---|
+| GET | `/api/v1/incidents` | Lista incidentes; filtros `monitoringZoneId`, `status`, `from`, `to` (fecha de apertura) y `limit` (100 por defecto, máximo 500) | ADMIN/VIEWER |
+| GET | `/api/v1/incidents/{incidentId}` | Detalle con la alerta, el reconocimiento y las acciones correctivas | ADMIN/VIEWER |
+| POST | `/api/v1/alerts/{alertId}/acknowledgements` | Reconoce la alerta (`note` opcional): la alerta y el incidente pasan a `ACKNOWLEDGED` | ADMIN |
+| POST | `/api/v1/incidents/{incidentId}/corrective-actions` | Registra una acción correctiva (`description` obligatoria, `notes` opcional) | ADMIN |
+| POST | `/api/v1/incidents/{incidentId}/resolve` | Resuelve el incidente (`notes` opcional); exige al menos una acción correctiva | ADMIN |
+
+### Reglas de negocio
+
+- Environmental Monitoring publica `DeviationDetected` por cada medición fuera de rango. Mientras la zona y la variable tengan un incidente sin resolver, las nuevas desviaciones pertenecen a ese caso y no abren otro; la clave `open_key` lo garantiza también en la base de datos. Al abrirse, el incidente nace `OPEN` con una alerta `PENDING` cuya severidad (`LOW` a `CRITICAL`) depende de la distancia al límite violado (`AlertPolicyService`).
+- Una alerta se reconoce una sola vez y solo mientras no esté cerrada. Reconocer actualiza el incidente a `ACKNOWLEDGED`.
+- Las acciones correctivas se asocian al incidente y no se aceptan una vez resuelto.
+- Un incidente no puede resolverse sin una acción correctiva (`IncidentResolutionService`). Al resolverse se cierra su alerta (`CLOSED`) y se publica `IncidentResolved`.
+- La apertura corre después de confirmarse la medición y en su propia transacción: un fallo al abrir el incidente nunca impide registrar la medición.
+
+### Integración con otros contextos
+
+Consume `DeviationDetected` de Environmental Monitoring y publica `AlertRaised`, `AlertAcknowledged`, `CorrectiveActionRegistered` e `IncidentResolved` a través del port `AlertIncidentEventPublisher`. `TraceabilityIncidentEventAdapter` traduce `IncidentResolved` al contrato `InboundEvents.IncidentResolved` de Traceability, en la misma transacción: la excursión de la zona queda vinculada al incidente, recibe la acción correctiva (las acciones se unen con ` | `) y se cierra. Si Traceability fallara, la resolución no se confirma.
+
+`V6__incident_lifecycle.sql` agrega a `incidents` la variable ambiental, el responsable y las notas de resolución y la clave `open_key`; y a `alerts`, quién reconoció, la nota del reconocimiento y la fecha de cierre.
 
 ## OpenAPI, configuración y pruebas
 
