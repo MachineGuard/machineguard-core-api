@@ -80,7 +80,8 @@ public class IncidentController {
     @Operation(summary = "Detalle del incidente con su alerta, el reconocimiento y las acciones correctivas")
     public IncidentDetailResource detail(@AuthenticationPrincipal IamPrincipal principal,
                                          @PathVariable UUID incidentId) {
-        return assembler.detail(queries.handle(new GetIncidentByIdQuery(principal.organizationId(), incidentId)));
+        return assembler.detail(queries.handle(new GetIncidentByIdQuery(principal.organizationId(), incidentId)),
+                principal.role() == com.machineguard.platform.iam.domain.model.Role.ADMIN);
     }
 
     @PostMapping("/{incidentId}/corrective-actions")

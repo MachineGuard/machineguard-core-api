@@ -81,3 +81,11 @@ Para ejecutar las consultas, persistencia y flujo tambien sobre una base Postgre
 Las rutas y servicios quedan integrados en Core. El cliente Web debe activar su repositorio HTTP y mapear severidad y nombre de zona para consumirlos; esta entrega no cambia pantallas. La credencial y el payload del gateway Edge todavia necesitan la integracion correspondiente de #10. No se abren rutas de ingesta publicas ni se acepta una cabecera de dispositivo como identidad sin validarla.
 
 Se conservan estados para escalamiento, pero no se implementa un job de escalamiento ni entrega Twilio. Estas capacidades no deben darse por terminadas a partir del CRUD y ciclo de vida de esta integracion.
+# Resolution eligibility
+
+Incident detail includes `withinSafeRange` (the latest monitored conditions) and
+`resolutionAllowed` for the authenticated caller. Resolution is available only
+to an ADMIN when the incident is active, a corrective action exists, and all
+relevant latest readings are safe. These flags explain the UI state; the resolve
+command rechecks conditions under locks and may still return 409 if they change.
+

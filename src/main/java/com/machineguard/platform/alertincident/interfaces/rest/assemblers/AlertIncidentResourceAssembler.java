@@ -38,7 +38,7 @@ public class AlertIncidentResourceAssembler {
                 c.getPerformedAt(), c.getNotes());
     }
 
-    public IncidentDetailResource detail(IncidentDetail detail) {
+    public IncidentDetailResource detail(IncidentDetail detail, boolean administrator) {
         Alert alert = detail.alert();
         AcknowledgementResource acknowledgement = alert != null && alert.isAcknowledged()
                 ? new AcknowledgementResource(alert.getAcknowledgedBy(), alert.getAcknowledgedAt(),
@@ -46,7 +46,9 @@ public class AlertIncidentResourceAssembler {
                 : null;
         return new IncidentDetailResource(incident(detail.incident()),
                 alert == null ? null : alert(alert, detail.incident()), acknowledgement,
-                detail.correctiveActions().stream().map(this::correctiveAction).toList());
+                detail.correctiveActions().stream().map(this::correctiveAction).toList(), detail.withinSafeRange(),
+                administrator && !detail.incident().isResolved() && detail.withinSafeRange()
+                        && !detail.correctiveActions().isEmpty());
     }
 
     public AlertAcknowledgementResource acknowledgement(Acknowledgement result) {
