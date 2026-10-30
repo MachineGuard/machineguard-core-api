@@ -1,5 +1,9 @@
 # MachineGuard Core API
 
+Para probar la integración completa en esta PC, consultar el
+[entorno local de testing para Windows](docs/local-testing.md): inicio y parada
+de Web/Core/PostgreSQL aislados, cuentas ADMIN/VIEWER y conservación de datos.
+
 REST API central de MachineGuard con los bounded contexts **IAM**, **Environmental Monitoring**, **Alert & Incident Management** y **Traceability & Quality**, desarrollada con Spring Boot 3.5, Spring Security, Spring Data JPA, Flyway y PostgreSQL. Los identificadores son UUID. La documentación OpenAPI y Swagger UI se sirven desde la propia API.
 
 ## Inicio local con Docker Compose
