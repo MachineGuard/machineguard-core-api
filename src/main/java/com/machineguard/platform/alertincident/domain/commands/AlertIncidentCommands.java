@@ -12,7 +12,7 @@ public final class AlertIncidentCommands {
     }
 
     /** Origen: DeviationDetected de Environmental Monitoring. */
-    public record RaiseAlertCommand(UUID deviationId, UUID organizationId, UUID monitoringZoneId,
+    public record RaiseAlertCommand(UUID measurementId, UUID organizationId, UUID monitoringZoneId,
                                     EnvironmentalVariable environmentalVariable, BigDecimal measuredValue,
                                     BigDecimal minimumValue, BigDecimal maximumValue, Instant detectedAt) {
     }

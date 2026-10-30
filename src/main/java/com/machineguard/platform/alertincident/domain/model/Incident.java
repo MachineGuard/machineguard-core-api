@@ -27,8 +27,8 @@ public class Incident {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "deviation_id", nullable = false, updatable = false)
-    private UUID deviationId;
+    @Column(name = "origin_measurement_id", nullable = false, updatable = false)
+    private UUID originMeasurementId;
 
     @Column(name = "organization_id", nullable = false, updatable = false)
     private UUID organizationId;
@@ -62,10 +62,10 @@ public class Incident {
     protected Incident() {
     }
 
-    public static Incident open(UUID deviationId, UUID organizationId, UUID monitoringZoneId,
+    public static Incident open(UUID originMeasurementId, UUID organizationId, UUID monitoringZoneId,
                                 EnvironmentalVariable environmentalVariable, Instant openedAt) {
         Incident incident = new Incident();
-        incident.deviationId = Objects.requireNonNull(deviationId);
+        incident.originMeasurementId = Objects.requireNonNull(originMeasurementId);
         incident.organizationId = Objects.requireNonNull(organizationId);
         incident.monitoringZoneId = Objects.requireNonNull(monitoringZoneId);
         incident.environmentalVariable = Objects.requireNonNull(environmentalVariable);
@@ -116,8 +116,8 @@ public class Incident {
         return id;
     }
 
-    public UUID getDeviationId() {
-        return deviationId;
+    public UUID getOriginMeasurementId() {
+        return originMeasurementId;
     }
 
     public UUID getOrganizationId() {

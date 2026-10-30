@@ -32,13 +32,23 @@ public class JpaIncidentRepositoryAdapter implements IncidentRepository {
     }
 
     @Override
+    public Optional<Incident> lockByIdAndOrganizationId(UUID id, UUID organizationId) {
+        return repository.lockByIdAndOrganizationId(id, organizationId);
+    }
+
+    @Override
+    public Optional<UUID> findZoneIdByIdAndOrganizationId(UUID id, UUID organizationId) {
+        return repository.findZoneIdByIdAndOrganizationId(id, organizationId);
+    }
+
+    @Override
     public Optional<Incident> findByIdAndOrganizationId(UUID id, UUID organizationId) {
         return repository.findByIdAndOrganizationId(id, organizationId);
     }
 
     @Override
-    public Optional<Incident> findByDeviationId(UUID deviationId) {
-        return repository.findByDeviationId(deviationId);
+    public Optional<Incident> findByOriginMeasurementId(UUID originMeasurementId) {
+        return repository.findByOriginMeasurementId(originMeasurementId);
     }
 
     @Override

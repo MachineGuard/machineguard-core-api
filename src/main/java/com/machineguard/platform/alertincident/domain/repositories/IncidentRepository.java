@@ -9,12 +9,14 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface IncidentRepository {
+    Optional<Incident> lockByIdAndOrganizationId(UUID id, UUID organizationId);
+    Optional<UUID> findZoneIdByIdAndOrganizationId(UUID id, UUID organizationId);
 
     Incident save(Incident incident);
 
     Optional<Incident> findByIdAndOrganizationId(UUID id, UUID organizationId);
 
-    Optional<Incident> findByDeviationId(UUID deviationId);
+    Optional<Incident> findByOriginMeasurementId(UUID originMeasurementId);
 
     /** Incidente sin resolver para la clave organizacion:zona:variable (a lo sumo uno). */
     Optional<Incident> findByOpenKey(String openKey);

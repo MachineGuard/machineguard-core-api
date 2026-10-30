@@ -56,7 +56,7 @@ public class ResolveIncidentCommandService {
             alert.close(now);
             alerts.save(alert);
         });
-        events.publish(new IncidentResolved(incident.getId(), incident.getDeviationId(), incident.getOrganizationId(),
+        events.publish(new IncidentResolved(incident.getId(), incident.getOriginMeasurementId(), incident.getOrganizationId(),
                 incident.getMonitoringZoneId(), incident.getEnvironmentalVariable(), resolution.summarize(performed),
                 incident.getResolvedAt()));
         return incident;

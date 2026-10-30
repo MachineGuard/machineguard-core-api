@@ -35,7 +35,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:incidentapi;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE")
 @AutoConfigureMockMvc
 class AlertIncidentApiIntegrationTest {
 
@@ -76,6 +76,20 @@ class AlertIncidentApiIntegrationTest {
         jdbc.execute("DELETE FROM corrective_actions");
         jdbc.execute("DELETE FROM alerts");
         jdbc.execute("DELETE FROM incidents");
+        for (String table : java.util.List.of("measurements", "thresholds", "sensor_nodes", "monitoring_points", "monitoring_zones"))
+            jdbc.update("DELETE FROM " + table);
+        for (UUID zone : java.util.List.of(ZONE, OTHER_ZONE)) {
+            UUID point = zone.equals(ZONE) ? POINT : uuid(101);
+            jdbc.update("INSERT INTO monitoring_zones(id,organization_id,name,status,created_at,updated_at) VALUES (?,?,?,'ACTIVE',?,?)",
+                    zone, ORG, "Zone", NOW, NOW);
+            jdbc.update("INSERT INTO monitoring_points(id,monitoring_zone_id,name,status,created_at,updated_at) VALUES (?,?,?,'ACTIVE',?,?)",
+                    point, zone, "Point", NOW, NOW);
+            for (String variable : java.util.List.of("TEMPERATURE", "HUMIDITY")) {
+                jdbc.update("INSERT INTO thresholds(id,monitoring_zone_id,environmental_variable,minimum_value,maximum_value,created_at,updated_at) VALUES (?,?,?,2,8,?,?)",
+                        UUID.randomUUID(), zone, variable, NOW, NOW);
+                reading(UUID.randomUUID(), zone, point, variable, "5.00", NOW.minusSeconds(7200));
+            }
+        }
     }
 
     private MockHttpServletRequestBuilder as(MockHttpServletRequestBuilder request, UUID org, Role role) {
@@ -88,9 +102,26 @@ class AlertIncidentApiIntegrationTest {
     }
 
     private void deviation(UUID zone, EnvironmentalVariable variable, String value, Instant at) {
-        events.publishEvent(new DeviationDetected(UUID.randomUUID(), ORG, zone, POINT, null, variable,
+        UUID measurementId = UUID.randomUUID();
+        UUID point = zone.equals(ZONE) ? POINT : uuid(101);
+        reading(measurementId, zone, point, variable.name(), value, at);
+        events.publishEvent(new DeviationDetected(measurementId, ORG, zone, point, null, variable,
                 new BigDecimal(value), new BigDecimal("2.00"), new BigDecimal("8.00"),
                 OffsetDateTime.ofInstant(at, ZoneOffset.UTC)));
+    }
+
+    private void reading(UUID id, UUID zone, UUID point, String variable, String value, Instant at) {
+        jdbc.update("INSERT INTO measurements(id,organization_id,monitoring_zone_id,monitoring_point_id,environmental_variable,measured_value,recorded_at,received_at) VALUES (?,?,?,?,?,?,?,?)",
+                id, ORG, zone, point, variable, new BigDecimal(value), at, NOW);
+    }
+
+    private void restore() {
+        UUID id = UUID.randomUUID();
+        Instant at = NOW.minusSeconds(120);
+        reading(id, ZONE, POINT, "TEMPERATURE", "5.00", at);
+        var timestamp = OffsetDateTime.ofInstant(at, ZoneOffset.UTC);
+        events.publishEvent(new com.machineguard.platform.environmentalmonitoring.domain.events.EnvironmentalMonitoringEvents.SafeRangeRestored(
+                id, ORG, ZONE, POINT, null, EnvironmentalVariable.TEMPERATURE, new BigDecimal("5.00"), timestamp, timestamp));
     }
 
     private JsonNode body(MvcResult result) throws Exception {
@@ -282,6 +313,7 @@ class AlertIncidentApiIntegrationTest {
         String incidentId = openIncident();
         String alertId = alertIdOf(incidentId);
         registerAction(incidentId, "Se reemplazo el compresor");
+        restore();
 
         mvc.perform(admin(post(INCIDENTS + "/" + incidentId + "/resolve"))
                         .contentType(MediaType.APPLICATION_JSON).content("{\"notes\":\"Camara estable\"}"))
@@ -313,6 +345,7 @@ class AlertIncidentApiIntegrationTest {
     void aNewDeviationOpensANewIncidentOnceTheZoneIsResolved() throws Exception {
         String incidentId = openIncident();
         registerAction(incidentId, "Se reemplazo el compresor");
+        restore();
         mvc.perform(admin(post(INCIDENTS + "/" + incidentId + "/resolve"))).andExpect(status().isOk());
 
         deviation(ZONE, EnvironmentalVariable.TEMPERATURE, "10.00", NOW.minusSeconds(60));
@@ -334,6 +367,7 @@ class AlertIncidentApiIntegrationTest {
         assertEquals(1, before.size());
         assertTrue(before.get(0).get("incidentId").isNull());
 
+        restore();
         mvc.perform(admin(post(INCIDENTS + "/" + incidentId + "/resolve"))).andExpect(status().isOk());
 
         JsonNode closed = body(mvc.perform(admin(get("/api/v1/traceability/excursions?status=CLOSED")))

@@ -28,7 +28,7 @@ public final class AlertIncidentResources {
 
     // ---- Respuestas ----
 
-    public record IncidentResource(UUID id, UUID deviationId, UUID monitoringZoneId, String environmentalVariable,
+    public record IncidentResource(UUID id, UUID originMeasurementId, UUID monitoringZoneId, String environmentalVariable,
                                    String status, Instant openedAt, Instant resolvedAt, UUID resolvedBy,
                                    String resolutionNotes) {
     }

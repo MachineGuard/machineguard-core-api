@@ -30,7 +30,7 @@ class AlertPersistenceIntegrationTest {
 
     UUID incident(UUID organizationId, UUID zoneId) {
         UUID id = UUID.randomUUID();
-        jdbc.update("INSERT INTO incidents (id, deviation_id, organization_id, monitoring_zone_id, status, opened_at) VALUES (?, ?, ?, ?, 'OPEN', ?)",
+        jdbc.update("INSERT INTO incidents (id, origin_measurement_id, organization_id, monitoring_zone_id, status, opened_at) VALUES (?, ?, ?, ?, 'OPEN', ?)",
                 id, UUID.randomUUID(), organizationId, zoneId, NOW);
         return id;
     }

@@ -47,7 +47,7 @@ class AlertApiIntegrationTest {
 
     Alert fixture(UUID org, UUID zone, AlertStatus status, int minute) {
         UUID incidentId = UUID.randomUUID();
-        jdbc.update("INSERT INTO incidents (id, deviation_id, organization_id, monitoring_zone_id, status, opened_at) VALUES (?, ?, ?, ?, 'OPEN', ?)",
+        jdbc.update("INSERT INTO incidents (id, origin_measurement_id, organization_id, monitoring_zone_id, status, opened_at) VALUES (?, ?, ?, ?, 'OPEN', ?)",
                 incidentId, UUID.randomUUID(), org, zone, NOW);
         Alert alert = alerts.save(Alert.raise(incidentId, AlertSeverity.HIGH, "Temperature outside safe range", NOW.plusMinutes(minute).toInstant()));
         jdbc.update("UPDATE alerts SET status=?, acknowledged_at=? WHERE id=?", status.name(),
