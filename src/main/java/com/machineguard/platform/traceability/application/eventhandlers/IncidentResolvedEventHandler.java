@@ -42,9 +42,11 @@ public class IncidentResolvedEventHandler {
         if (excursions.findFirstByOrganizationIdAndIncidentId(event.organizationId(), event.incidentId()).isPresent()) {
             return; // evento repetido: el incidente ya esta vinculado
         }
-        List<Excursion> targets = lifecycle.findOpenInZone(
-                event.organizationId(), event.monitoringZoneId(), event.environmentalVariable());
-        if (targets.isEmpty()) {
+        List<Excursion> targets = event.openedAt() == null
+                ? lifecycle.findOpenInZone(event.organizationId(), event.monitoringZoneId(), event.environmentalVariable())
+                : excursions.findUnlinkedInIncidentPeriod(event.organizationId(), event.monitoringZoneId(),
+                        event.environmentalVariable(), event.openedAt(), event.resolvedAt());
+        if (targets.isEmpty() && event.openedAt() == null) {
             // El Safe Range pudo restablecerse antes: se vincula a la excursion cerrada mas reciente sin incidente.
             targets = excursions
                     .findByOrganizationIdAndMonitoringZoneIdAndStatusAndIncidentIdIsNullOrderByEndedAtDesc(

@@ -91,7 +91,10 @@ class IamApiIntegrationTest {
                 .andExpect(jsonPath("$.id").value(ORG.toString()));
         mvc.perform(withBearer(get("/api/v1/organizations/" + OTHER_ORG), access))
                 .andExpect(status().isForbidden());
-        String tampered = access.substring(0, access.length() - 1) + (access.endsWith("A") ? "B" : "A");
+        int signature = access.lastIndexOf('.') + 1;
+        // Change actual signature bits; the last Base64 character can differ only in unused padding bits.
+        String tampered = access.substring(0, signature) + (access.charAt(signature) == 'A' ? 'B' : 'A')
+                + access.substring(signature + 1);
         mvc.perform(withBearer(get("/api/v1/users/me"), tampered)).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/v1/traceability/excursions")
                         .header("X-Organization-Id", ORG).header("X-User-Id", ADMIN))

@@ -1,6 +1,6 @@
 # MachineGuard Core API
 
-REST API central de MachineGuard con los bounded contexts **IAM**, **Environmental Monitoring** y **Traceability & Quality**, desarrollada con Spring Boot 3.5, Spring Security, Spring Data JPA, Flyway y PostgreSQL. Los identificadores son UUID. La documentación OpenAPI y Swagger UI se sirven desde la propia API.
+REST API central de MachineGuard con los bounded contexts **IAM**, **Environmental Monitoring**, **Alert & Incident Management** y **Traceability & Quality**, desarrollada con Spring Boot 3.5, Spring Security, Spring Data JPA, Flyway y PostgreSQL. Los identificadores son UUID. La documentación OpenAPI y Swagger UI se sirven desde la propia API.
 
 ## Inicio local con Docker Compose
 
@@ -133,7 +133,36 @@ Los eventos `DeviationDetected` y `SafeRangeRestored` de Environmental Monitorin
 
 Measurement History se lee mediante `MeasurementHistoryProvider` y su adaptador JDBC de la tabla configurable `measurements`, con las columnas `organization_id`, `monitoring_zone_id`, `monitoring_point_id`, `environmental_variable`, `measured_value` y `recorded_at`. Esa tabla pertenece a Environmental Monitoring y está creada por V1. Environmental Monitoring ya registra mediciones en ella; el adaptador JDBC existente las consume sin cambios en Traceability. Un `503` indica que la tabla configurada no está disponible.
 
-Las migraciones Flyway se ordenan así: `V1__environmental_monitoring.sql` (zonas, puntos, nodos sensores, umbrales y mediciones), `V2__alert_incident.sql` (incidentes, alertas y acciones correctivas), `V4__traceability_quality.sql` (`excursions`, `non_conformities`, `traceability_reports` y `traceability_report_excursions`) y `V5__iam.sql` (tablas IAM); `V3` queda reservada. Traceability usa la identidad autenticada por JWT y no acepta identificadores de usuario u organización enviados por el cliente.
+Las migraciones Flyway se ordenan así: `V1__environmental_monitoring.sql` (zonas, puntos, nodos sensores, umbrales y mediciones), `V2__alert_incident.sql` (incidentes, alertas y acciones correctivas), `V4__traceability_quality.sql` (`excursions`, `non_conformities`, `traceability_reports` y `traceability_report_excursions`), `V5__iam.sql` (tablas IAM) `V6__incident_lifecycle.sql` (ciclo de vida del incidente) y `V7__incident_integration.sql` (origen de mediciones e integracion); `V3` queda reservada. Traceability usa la identidad autenticada por JWT y no acepta identificadores de usuario u organización enviados por el cliente.
+
+## Alert & Incident Management
+
+Las entregas de alertas e incidentes se integran en un unico contexto, `com.machineguard.platform.alertincident`, con una sola entidad `Alert` y un solo repository/adapter. Se mantienen las consultas y filtros de alertas junto con el ciclo de vida de incidentes. Las ramas originales permanecen en el historial mediante merges.
+
+| Metodo | Ruta | Funcion | Acceso |
+|---|---|---|---|
+| GET | `/api/v1/alerts` | Alertas del tenant; filtros `monitoringZoneId`, `status` | ADMIN/VIEWER |
+| GET | `/api/v1/alerts/{alertId}` | Detalle de alerta, incluida su zona | ADMIN/VIEWER |
+| GET | `/api/v1/incidents` | Incidentes por zona, estado y periodo; `limit` entre 1 y 500 | ADMIN/VIEWER |
+| GET | `/api/v1/incidents/{incidentId}` | Incidente, alerta, reconocimiento y acciones | ADMIN/VIEWER |
+| POST | `/api/v1/alerts/{alertId}/acknowledgements` | Reconoce con `note` opcional | ADMIN |
+| POST | `/api/v1/incidents/{incidentId}/corrective-actions` | Registra `description` y `notes` opcionales | ADMIN |
+| POST | `/api/v1/incidents/{incidentId}/resolve` | Resuelve con `notes` opcionales | ADMIN |
+
+Organizacion y autores proceden de `IamPrincipal`, nunca de cabeceras o campos de identidad suministrados por el consumidor. Recursos ajenos se devuelven como 404. JWT ausente/invalido/vencido produce 401; rol insuficiente, 403. Cada reconocimiento inicial y accion nueva devuelve 201; reconocimiento repetido, cambios sobre incidentes resueltos y resolucion sin condiciones producen 409.
+
+### Generacion y cierre
+
+- El unico handler de `DeviationDetected` coordina un servicio de aplicacion sincrono. Medicion, incidente, alerta y efectos de trazabilidad se confirman o revierten juntos. No se oculta un fallo de generacion despues de aceptar la medicion.
+- Existe un incidente activo por organizacion, zona y variable, incluyendo estados OPEN, ACKNOWLEDGED y ESCALATED. Se devuelve `incidentId` tanto al crear como al recuperar.
+- `originMeasurementId` conserva la primera medicion. `incident_measurements` conserva todas las mediciones absorbidas para que repetir una de ellas, incluso despues de resolver, no abra otro incidente.
+- Volver al rango cierra la excursion fisica, pero no resuelve el incidente. Resolver exige al menos una accion correctiva y que las ultimas mediciones conocidas de todos los puntos para esa variable esten dentro del umbral vigente. Sin mediciones o sin umbral no se permite resolver.
+- Generacion y resolucion usan el mismo bloqueo de zona que la ingesta y configuracion de umbrales. Reconocimiento, acciones y resolucion bloquean el incidente para serializar sus transiciones y conservar autor/estado.
+- La resolucion cierra la alerta y vincula las excursiones del periodo del incidente con sus acciones correctivas, incluyendo recuperaciones y recaidas antes del cierre administrativo.
+
+V1, V2, V4, V5 y V6 permanecen intactas. `V7__incident_integration.sql` renombra `deviation_id` a `origin_measurement_id` y crea las asociaciones de mediciones, conservando los datos existentes. Flyway aplica V7 al actualizar una base que ya tenga V6; no hace falta recrearla por esta integracion.
+
+Los contratos, limites y comandos de verificacion estan en [Alertas e incidentes](docs/alerts.md).
 
 ## OpenAPI, configuración y pruebas
 
