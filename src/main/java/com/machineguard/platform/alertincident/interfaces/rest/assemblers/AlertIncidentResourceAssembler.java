@@ -3,6 +3,7 @@ package com.machineguard.platform.alertincident.interfaces.rest.assemblers;
 import com.machineguard.platform.alertincident.application.commandservices.AcknowledgeAlertCommandService.Acknowledgement;
 import com.machineguard.platform.alertincident.application.queryservices.IncidentQueryService.IncidentDetail;
 import com.machineguard.platform.alertincident.domain.model.Alert;
+import com.machineguard.platform.alertincident.domain.model.AlertSummary;
 import com.machineguard.platform.alertincident.domain.model.CorrectiveAction;
 import com.machineguard.platform.alertincident.domain.model.Incident;
 import com.machineguard.platform.alertincident.interfaces.rest.resources.AlertIncidentResources.AcknowledgementResource;
@@ -25,6 +26,11 @@ public class AlertIncidentResourceAssembler {
     public AlertResource alert(Alert a, Incident incident) {
         return new AlertResource(a.getId(), a.getIncidentId(), incident.getMonitoringZoneId(), a.getSeverity().name(),
                 a.getStatus().name(), a.getMessage(), a.getRaisedAt(), a.getAcknowledgedAt(), a.getEscalatedAt());
+    }
+
+    public AlertResource alert(AlertSummary a) {
+        return new AlertResource(a.id(), a.incidentId(), a.monitoringZoneId(), a.severity().name(),
+                a.status().name(), a.message(), a.raisedAt(), a.acknowledgedAt(), a.escalatedAt());
     }
 
     public CorrectiveActionResource correctiveAction(CorrectiveAction c) {

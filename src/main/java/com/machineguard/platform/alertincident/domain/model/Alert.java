@@ -63,9 +63,12 @@ public class Alert {
         Alert alert = new Alert();
         alert.incidentId = Objects.requireNonNull(incidentId);
         alert.severity = Objects.requireNonNull(severity);
-        alert.message = message.length() > 500 ? message.substring(0, 500) : message;
+        Objects.requireNonNull(message);
+        if (message.isBlank() || message.length() > 500)
+            throw new IllegalArgumentException("Alert message must contain text and at most 500 characters");
+        alert.message = message;
         alert.status = AlertStatus.PENDING;
-        alert.raisedAt = raisedAt.truncatedTo(ChronoUnit.MILLIS);
+        alert.raisedAt = Objects.requireNonNull(raisedAt);
         return alert;
     }
 

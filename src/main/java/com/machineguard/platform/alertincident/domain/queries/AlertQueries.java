@@ -1,6 +1,6 @@
-package com.machineguard.platform.alertincidentmanagement.domain.queries;
+package com.machineguard.platform.alertincident.domain.queries;
 
-import com.machineguard.platform.alertincidentmanagement.domain.model.AlertStatus;
+import com.machineguard.platform.alertincident.domain.model.AlertStatus;
 import java.util.Objects;
 import java.util.UUID;
 

@@ -1,9 +1,10 @@
-package com.machineguard.platform.alertincidentmanagement.interfaces.rest;
+package com.machineguard.platform.alertincident.interfaces.rest;
 
-import com.machineguard.platform.alertincidentmanagement.application.queryservices.AlertQueryService;
-import com.machineguard.platform.alertincidentmanagement.domain.model.AlertStatus;
-import com.machineguard.platform.alertincidentmanagement.domain.queries.AlertQueries.*;
-import com.machineguard.platform.alertincidentmanagement.interfaces.rest.resources.AlertResources.AlertResource;
+import com.machineguard.platform.alertincident.application.queryservices.AlertQueryService;
+import com.machineguard.platform.alertincident.domain.model.AlertStatus;
+import com.machineguard.platform.alertincident.domain.queries.AlertQueries.*;
+import com.machineguard.platform.alertincident.interfaces.rest.resources.AlertIncidentResources.AlertResource;
+import com.machineguard.platform.alertincident.interfaces.rest.assemblers.AlertIncidentResourceAssembler;
 import com.machineguard.platform.iam.infrastructure.security.IamPrincipal;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -20,18 +21,22 @@ import java.util.UUID;
 @PreAuthorize("hasAnyRole('ADMIN','VIEWER')")
 public class AlertController {
     private final AlertQueryService queries;
+    private final AlertIncidentResourceAssembler assembler;
 
-    public AlertController(AlertQueryService queries) { this.queries = queries; }
+    public AlertController(AlertQueryService queries, AlertIncidentResourceAssembler assembler) {
+        this.queries = queries;
+        this.assembler = assembler;
+    }
 
     @GetMapping
     public List<AlertResource> list(@AuthenticationPrincipal IamPrincipal principal,
             @RequestParam(required = false) UUID monitoringZoneId, @RequestParam(required = false) AlertStatus status) {
         return queries.handle(new GetAlerts(principal.organizationId(), monitoringZoneId, status))
-                .stream().map(AlertResource::from).toList();
+                .stream().map(assembler::alert).toList();
     }
 
     @GetMapping("/{alertId}")
     public AlertResource detail(@AuthenticationPrincipal IamPrincipal principal, @PathVariable UUID alertId) {
-        return AlertResource.from(queries.handle(new GetAlertById(principal.organizationId(), alertId)));
+        return assembler.alert(queries.handle(new GetAlertById(principal.organizationId(), alertId)));
     }
 }

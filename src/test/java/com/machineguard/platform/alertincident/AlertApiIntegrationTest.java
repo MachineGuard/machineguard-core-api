@@ -1,7 +1,7 @@
-package com.machineguard.platform.alertincidentmanagement;
+package com.machineguard.platform.alertincident;
 
-import com.machineguard.platform.alertincidentmanagement.domain.model.*;
-import com.machineguard.platform.alertincidentmanagement.domain.repositories.AlertRepository;
+import com.machineguard.platform.alertincident.domain.model.*;
+import com.machineguard.platform.alertincident.domain.repositories.AlertRepository;
 import com.machineguard.platform.iam.domain.model.Role;
 import com.machineguard.platform.iam.infrastructure.security.JwtTokenService;
 import org.junit.jupiter.api.*;
@@ -18,7 +18,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:alertapi;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE",
+        "spring.datasource.url=${MACHINEGUARD_TEST_DB_URL:jdbc:h2:mem:alertapi;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE}",
         "spring.jpa.hibernate.ddl-auto=none"})
 @AutoConfigureMockMvc
 class AlertApiIntegrationTest {
@@ -49,7 +49,7 @@ class AlertApiIntegrationTest {
         UUID incidentId = UUID.randomUUID();
         jdbc.update("INSERT INTO incidents (id, deviation_id, organization_id, monitoring_zone_id, status, opened_at) VALUES (?, ?, ?, ?, 'OPEN', ?)",
                 incidentId, UUID.randomUUID(), org, zone, NOW);
-        Alert alert = alerts.save(Alert.raise(incidentId, AlertSeverity.HIGH, "Temperature outside safe range", NOW.plusMinutes(minute)));
+        Alert alert = alerts.save(Alert.raise(incidentId, AlertSeverity.HIGH, "Temperature outside safe range", NOW.plusMinutes(minute).toInstant()));
         jdbc.update("UPDATE alerts SET status=?, acknowledged_at=? WHERE id=?", status.name(),
                 status == AlertStatus.ACKNOWLEDGED ? NOW.plusMinutes(3) : null, alert.getId());
         return alert;

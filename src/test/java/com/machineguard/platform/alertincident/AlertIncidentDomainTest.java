@@ -105,9 +105,9 @@ class AlertIncidentDomainTest {
     }
 
     @Test
-    void alertMessageIsTruncatedToTheColumnLength() {
-        Alert alert = Alert.raise(id(10), AlertSeverity.LOW, "x".repeat(900), T0);
-        assertEquals(500, alert.getMessage().length());
+    void oversizedAlertMessagesAreRejected() {
+        assertThrows(IllegalArgumentException.class,
+                () -> Alert.raise(id(10), AlertSeverity.LOW, "x".repeat(900), T0));
     }
 
     @Test
