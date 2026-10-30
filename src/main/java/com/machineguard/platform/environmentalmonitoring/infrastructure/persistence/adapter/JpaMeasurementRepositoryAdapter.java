@@ -37,6 +37,12 @@ public class JpaMeasurementRepositoryAdapter implements MeasurementRepository {
         return repository.findByIdAndOrganizationId(id, organizationId);
     }
     @Override
+    public Optional<Measurement> findByOrganizationIdAndMonitoringPointIdAndEnvironmentalVariableAndRecordedAt(
+            UUID organizationId, UUID monitoringPointId, EnvironmentalVariable variable, OffsetDateTime recordedAt) {
+        return repository.findByOrganizationIdAndMonitoringPointIdAndEnvironmentalVariableAndRecordedAt(
+                organizationId,monitoringPointId,variable,recordedAt);
+    }
+    @Override
     public Optional<Measurement> findFirstByOrganizationIdAndMonitoringPointIdAndEnvironmentalVariableOrderByRecordedAtDesc(
             UUID organizationId, UUID monitoringPointId, EnvironmentalVariable environmentalVariable) {
         return repository.findFirstByOrganizationIdAndMonitoringPointIdAndEnvironmentalVariableOrderByRecordedAtDesc(

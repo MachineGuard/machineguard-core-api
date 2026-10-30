@@ -166,6 +166,12 @@ Los contratos, limites y comandos de verificacion estan en [Alertas e incidentes
 
 ## OpenAPI, configuración y pruebas
 
+### Gateways y transporte Edge
+
+Los gateways se aprovisionan mediante un ADMIN activo y reciben una credencial opaca limitada a los sensores de su organización. La máquina usa `X-Device-Credential`, con permisos exclusivos de ingesta: `POST /api/v1/measurements` y `/api/v1/measurements/batch`. Las lecturas conservan su instante de captura; los reintentos idénticos se confirman sin duplicar datos. El JWT de usuario no sustituye esta identidad de gateway.
+
+Contratos: [Credenciales de gateway](docs/gateways.md) y [Ingesta Edge-Core](docs/gateway-ingestion.md).
+
 - Swagger UI: `http://localhost:8080/swagger-ui.html`
 - Documento OpenAPI: `http://localhost:8080/v3/api-docs`
 - Variables IAM: `IAM_JWT_SECRET`, `IAM_ACCESS_TOKEN_TTL_SECONDS` (de 60 a 3600 segundos), `IAM_REFRESH_TOKEN_TTL_DAYS` (por defecto 30) y `IAM_BOOTSTRAP_*`.

@@ -15,6 +15,8 @@ public interface MeasurementRepository {
     boolean existsByOrganizationIdAndMonitoringPointIdAndEnvironmentalVariableAndRecordedAt(
             UUID organizationId, UUID monitoringPointId, EnvironmentalVariable environmentalVariable, OffsetDateTime recordedAt);
     Optional<Measurement> findByIdAndOrganizationId(UUID id, UUID organizationId);
+    Optional<Measurement> findByOrganizationIdAndMonitoringPointIdAndEnvironmentalVariableAndRecordedAt(
+            UUID organizationId, UUID monitoringPointId, EnvironmentalVariable variable, OffsetDateTime recordedAt);
     Optional<Measurement> findFirstByOrganizationIdAndMonitoringPointIdAndEnvironmentalVariableOrderByRecordedAtDesc(
             UUID organizationId, UUID monitoringPointId, EnvironmentalVariable environmentalVariable);
     List<Measurement> findLatest(UUID organizationId, UUID zoneId);

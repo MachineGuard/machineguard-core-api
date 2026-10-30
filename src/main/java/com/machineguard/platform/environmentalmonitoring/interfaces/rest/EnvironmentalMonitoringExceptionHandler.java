@@ -16,7 +16,7 @@ public class EnvironmentalMonitoringExceptionHandler {
     public ProblemDetail conflict(EnvironmentalMonitoringRuleException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
     }
-    @ExceptionHandler({MethodArgumentNotValidException.class, MethodArgumentTypeMismatchException.class,
+    @ExceptionHandler({IllegalArgumentException.class, MethodArgumentNotValidException.class, MethodArgumentTypeMismatchException.class,
             org.springframework.http.converter.HttpMessageNotReadableException.class,
             org.springframework.web.bind.MissingServletRequestParameterException.class})
     public ProblemDetail invalid(Exception exception) {
