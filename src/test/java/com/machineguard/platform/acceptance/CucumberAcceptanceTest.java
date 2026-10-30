@@ -11,7 +11,7 @@ import static io.cucumber.junit.platform.engine.Constants.PLUGIN_PUBLISH_QUIET_P
 
 /**
  * Suite BDD: ejecuta los escenarios Gherkin de src/test/resources/features con Cucumber.
- * Cada escenario corresponde a un criterio de aceptación de las historias del Sprint 1 (Cap. III).
+ * Escenarios de IAM, trazabilidad y el incremento integrado de alertas/incidentes (Cap. III).
  * El reporte HTML queda en target/cucumber-reports/cucumber.html.
  */
 @Suite

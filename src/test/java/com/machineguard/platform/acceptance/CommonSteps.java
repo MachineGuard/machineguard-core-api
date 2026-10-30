@@ -13,6 +13,7 @@ public class CommonSteps {
 
     private static final List<String> TABLES_IN_DELETE_ORDER = List.of(
             "traceability_report_excursions", "traceability_reports", "non_conformities", "excursions",
+            "corrective_actions", "alerts", "incidents",
             "measurements", "thresholds", "sensor_nodes", "monitoring_points", "monitoring_zones",
             "initial_admin_invitations", "authentication_refresh_token_history", "authentication_sessions",
             "users", "organizations");
