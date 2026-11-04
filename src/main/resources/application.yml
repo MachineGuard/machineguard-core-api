@@ -13,6 +13,10 @@ spring:
     enabled: true
 
 machineguard:
+  monitoring:
+    max-future-seconds: ${CORE_MAX_FUTURE_SECONDS:60}
+    max-reading-age-days: ${CORE_MAX_READING_AGE_DAYS:30}
+    min-recorded-at: ${CORE_MIN_RECORDED_AT:2026-01-01T00:00:00Z}
   iam:
     jwt-secret: ${IAM_JWT_SECRET:}
     issuer: machineguard-iam

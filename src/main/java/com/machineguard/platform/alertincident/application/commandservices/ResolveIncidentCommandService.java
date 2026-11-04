@@ -65,7 +65,8 @@ public class ResolveIncidentCommandService {
         });
         events.publish(new IncidentResolved(incident.getId(), incident.getOriginMeasurementId(), incident.getOrganizationId(),
                 incident.getMonitoringZoneId(), incident.getEnvironmentalVariable(), resolution.summarize(performed),
-                incident.getResolvedAt(), incident.getOpenedAt()));
+                incident.getResolvedAt(), incident.getLiveStartedAt()==null ? incident.getOpenedAt() : incident.getLiveStartedAt(),
+                incident.isHistorical()));
         return incident;
     }
 }

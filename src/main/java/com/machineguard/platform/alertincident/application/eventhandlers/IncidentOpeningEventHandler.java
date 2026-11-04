@@ -4,6 +4,7 @@ import com.machineguard.platform.alertincident.application.commandservices.Raise
 import com.machineguard.platform.alertincident.domain.commands.AlertIncidentCommands.RaiseAlertCommand;
 import com.machineguard.platform.alertincident.domain.model.EnvironmentalVariable;
 import com.machineguard.platform.environmentalmonitoring.domain.events.EnvironmentalMonitoringEvents.DeviationDetected;
+import com.machineguard.platform.environmentalmonitoring.domain.events.EnvironmentalMonitoringEvents.LateDeviationDetected;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,5 +20,13 @@ public class IncidentOpeningEventHandler {
         raiseAlert.handle(new RaiseAlertCommand(event.measurementId(), event.organizationId(),
                 event.monitoringZoneId(), EnvironmentalVariable.valueOf(event.environmentalVariable().name()),
                 event.measuredValue(), event.minimumValue(), event.maximumValue(), event.recordedAt().toInstant()));
+    }
+
+    @EventListener
+    @Transactional
+    public void on(LateDeviationDetected event) {
+        raiseAlert.handle(new RaiseAlertCommand(event.measurementId(),event.organizationId(),event.monitoringZoneId(),
+                EnvironmentalVariable.valueOf(event.environmentalVariable().name()),event.measuredValue(),
+                event.minimumValue(),event.maximumValue(),event.recordedAt().toInstant(),true));
     }
 }

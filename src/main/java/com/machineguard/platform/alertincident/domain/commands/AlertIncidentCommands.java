@@ -14,7 +14,13 @@ public final class AlertIncidentCommands {
     /** Origen: DeviationDetected de Environmental Monitoring. */
     public record RaiseAlertCommand(UUID measurementId, UUID organizationId, UUID monitoringZoneId,
                                     EnvironmentalVariable environmentalVariable, BigDecimal measuredValue,
-                                    BigDecimal minimumValue, BigDecimal maximumValue, Instant detectedAt) {
+                                    BigDecimal minimumValue, BigDecimal maximumValue, Instant detectedAt, boolean historical) {
+        public RaiseAlertCommand(UUID measurementId, UUID organizationId, UUID monitoringZoneId,
+                EnvironmentalVariable environmentalVariable, BigDecimal measuredValue, BigDecimal minimumValue,
+                BigDecimal maximumValue, Instant detectedAt) {
+            this(measurementId,organizationId,monitoringZoneId,environmentalVariable,measuredValue,
+                    minimumValue,maximumValue,detectedAt,false);
+        }
     }
 
     public record AcknowledgeAlertCommand(UUID organizationId, UUID alertId, UUID acknowledgedBy, String note) {

@@ -6,6 +6,7 @@ import com.machineguard.platform.environmentalmonitoring.domain.exceptions.*;
 import com.machineguard.platform.environmentalmonitoring.domain.model.*;
 import com.machineguard.platform.environmentalmonitoring.domain.repositories.*;
 import com.machineguard.platform.environmentalmonitoring.application.ports.EnvironmentalMonitoringEventPublisher;
+import com.machineguard.platform.environmentalmonitoring.application.MeasurementTimePolicy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.*;
@@ -19,9 +20,10 @@ public class RegisterMeasurementCommandService {
     private final MeasurementRepository measurements;
     private final EnvironmentalMonitoringEventPublisher events;
     private final Clock clock;
+    private final MeasurementTimePolicy timePolicy;
     public RegisterMeasurementCommandService(MonitoringZoneRepository zones, MonitoringPointRepository points,
             SensorNodeRepository nodes, ThresholdRepository thresholds, MeasurementRepository measurements,
-            EnvironmentalMonitoringEventPublisher events, Clock clock) {
+            EnvironmentalMonitoringEventPublisher events, Clock clock, MeasurementTimePolicy timePolicy) {
         this.zones = zones;
         this.points = points;
         this.nodes = nodes;
@@ -29,10 +31,12 @@ public class RegisterMeasurementCommandService {
         this.measurements = measurements;
         this.events = events;
         this.clock = clock;
+        this.timePolicy = timePolicy;
     }
 
     @Transactional
     public Measurement handle(RegisterMeasurementCommand command) {
+        timePolicy.validate(command.recordedAt());
         // Serialize zone ingestion: concurrent points must not prematurely restore a zone-wide excursion.
         MonitoringZone zone = zones.lockByIdAndOrganizationId(command.monitoringZoneId(), command.organizationId())
                 .orElseThrow(() -> new EnvironmentalMonitoringNotFoundException("Monitoring zone not found"));
@@ -55,8 +59,14 @@ public class RegisterMeasurementCommandService {
                 command.organizationId(), point.getId(), command.environmentalVariable(), measurement.getRecordedAt()))
             throw new EnvironmentalMonitoringRuleException("A reading already exists for this point, variable and recordedAt");
         measurements.save(measurement);
-        // Historical backfill is retained but cannot rewind live state or Traceability's lifecycle.
-        if (previous != null && measurement.getRecordedAt().isBefore(previous.getRecordedAt())) return measurement;
+        // Backfill has a separate event: it cannot rewind live state or physical excursions.
+        if (previous != null && measurement.getRecordedAt().isBefore(previous.getRecordedAt())) {
+            if (threshold.isOutOfRange(measurement.getMeasuredValue()))
+                events.publish(new LateDeviationDetected(measurement.getId(),command.organizationId(),zone.getId(),point.getId(),
+                        command.sensorNodeId(),command.environmentalVariable(),measurement.getMeasuredValue(),
+                        threshold.getMinimumValue(),threshold.getMaximumValue(),measurement.getRecordedAt(),measurement.getReceivedAt()));
+            return measurement;
+        }
         if (node != null) {
             node.recordMeasurement(measurement.getRecordedAt());
             nodes.save(node);

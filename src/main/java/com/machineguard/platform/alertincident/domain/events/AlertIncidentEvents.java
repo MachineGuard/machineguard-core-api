@@ -27,6 +27,11 @@ public final class AlertIncidentEvents {
     /** Lo consume Traceability and Quality para vincular la accion correctiva con la excursion. */
     public record IncidentResolved(UUID incidentId, UUID originMeasurementId, UUID organizationId, UUID monitoringZoneId,
                                    EnvironmentalVariable environmentalVariable, String correctiveAction,
-                                   Instant resolvedAt, Instant openedAt) {
+                                   Instant resolvedAt, Instant openedAt, boolean historical) {
+        public IncidentResolved(UUID incidentId, UUID originMeasurementId, UUID organizationId, UUID monitoringZoneId,
+                EnvironmentalVariable environmentalVariable, String correctiveAction, Instant resolvedAt, Instant openedAt) {
+            this(incidentId,originMeasurementId,organizationId,monitoringZoneId,environmentalVariable,
+                    correctiveAction,resolvedAt,openedAt,false);
+        }
     }
 }

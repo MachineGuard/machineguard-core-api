@@ -59,11 +59,22 @@ public class Incident {
     @Column(name = "open_key", length = 100)
     private String openKey;
 
+    @Column(nullable = false)
+    private boolean historical;
+
+    @Column(name = "live_started_at")
+    private Instant liveStartedAt;
+
     protected Incident() {
     }
 
     public static Incident open(UUID originMeasurementId, UUID organizationId, UUID monitoringZoneId,
                                 EnvironmentalVariable environmentalVariable, Instant openedAt) {
+        return open(originMeasurementId,organizationId,monitoringZoneId,environmentalVariable,openedAt,false);
+    }
+
+    public static Incident open(UUID originMeasurementId, UUID organizationId, UUID monitoringZoneId,
+                                EnvironmentalVariable environmentalVariable, Instant openedAt, boolean historical) {
         Incident incident = new Incident();
         incident.originMeasurementId = Objects.requireNonNull(originMeasurementId);
         incident.organizationId = Objects.requireNonNull(organizationId);
@@ -72,8 +83,20 @@ public class Incident {
         incident.status = IncidentStatus.OPEN;
         incident.openedAt = openedAt.truncatedTo(ChronoUnit.MILLIS);
         incident.openKey = openKeyOf(organizationId, monitoringZoneId, environmentalVariable);
+        incident.historical = historical;
+        incident.liveStartedAt = historical ? null : incident.openedAt;
         return incident;
     }
+
+    public void recordLiveEvidence(Instant at) {
+        requireUnresolved("agregar evidencia vigente");
+        historical=false;
+        Instant captured=at.truncatedTo(ChronoUnit.MILLIS);
+        if (liveStartedAt==null || captured.isBefore(liveStartedAt)) liveStartedAt=captured;
+    }
+
+    public boolean isHistorical() { return historical; }
+    public Instant getLiveStartedAt() { return liveStartedAt; }
 
     public static String openKeyOf(UUID organizationId, UUID monitoringZoneId, EnvironmentalVariable variable) {
         return organizationId + ":" + monitoringZoneId + ":" + variable;

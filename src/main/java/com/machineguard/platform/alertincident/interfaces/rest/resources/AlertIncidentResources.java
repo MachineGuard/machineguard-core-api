@@ -30,7 +30,7 @@ public final class AlertIncidentResources {
 
     public record IncidentResource(UUID id, UUID originMeasurementId, UUID monitoringZoneId, String environmentalVariable,
                                    String status, Instant openedAt, Instant resolvedAt, UUID resolvedBy,
-                                   String resolutionNotes) {
+                                   String resolutionNotes, boolean historical) {
     }
 
     public record AlertResource(UUID id, UUID incidentId, UUID monitoringZoneId, String severity, String status,

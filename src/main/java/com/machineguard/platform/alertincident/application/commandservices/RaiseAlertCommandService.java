@@ -55,11 +55,15 @@ public class RaiseAlertCommandService {
         Incident incident = incidents.findByOriginMeasurementId(command.measurementId())
                 .or(() -> incidents.findByOpenKey(openKey))
                 .orElseGet(() -> incidents.save(Incident.open(command.measurementId(), command.organizationId(),
-                        command.monitoringZoneId(), command.environmentalVariable(), command.detectedAt())));
+                        command.monitoringZoneId(), command.environmentalVariable(), command.detectedAt(),command.historical())));
         if (!incident.getOrganizationId().equals(command.organizationId())
                 || !incident.getMonitoringZoneId().equals(command.monitoringZoneId())
                 || incident.getEnvironmentalVariable() != command.environmentalVariable())
             throw new AlertIncidentRuleException("Measurement identity does not match its original incident");
+        if (!command.historical()) {
+            incident.recordLiveEvidence(command.detectedAt());
+            incidents.save(incident);
+        }
         var existing = alerts.findByIncidentId(incident.getId());
         Alert alert;
         if (existing.isPresent()) {
@@ -68,6 +72,7 @@ public class RaiseAlertCommandService {
             String message = "%s fuera de rango en la zona %s: medicion %s (rango seguro %s a %s)".formatted(
                     command.environmentalVariable(), command.monitoringZoneId(), command.measuredValue().toPlainString(),
                     command.minimumValue().toPlainString(), command.maximumValue().toPlainString());
+            if (command.historical()) message="Desviacion historica: "+message;
             alert = alerts.save(Alert.raise(incident.getId(),
                     policy.classify(command.measuredValue(), command.minimumValue(), command.maximumValue()),
                     message, command.detectedAt()));

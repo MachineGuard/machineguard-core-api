@@ -176,6 +176,15 @@ Los gateways se aprovisionan mediante un ADMIN activo y reciben una credencial o
 
 Contratos: [Credenciales de gateway](docs/gateways.md) y [Ingesta Edge-Core](docs/gateway-ingestion.md).
 
+Las capturas requieren zona horaria. Se rechazan fechas anteriores al 01/01/2026 UTC,
+de más de 30 días o con más de 60 s de adelanto; los límites están en `.env.example`.
+Las desviaciones tardías generan evidencia y se agrupan en un incidente sin cambiar
+el estado ambiental actual. `historical` indica que todas sus mediciones son tardías;
+si recibe una desviación vigente pasa a ser un caso actual. Cerrar un caso histórico
+no vincula ni cierra excursiones. Consulta la evidencia con
+`GET /api/v1/traceability/late-deviations?monitoringZoneId=<uuid>&limit=100`
+(JWT ADMIN/VIEWER, máximo 500 registros). Los reportes sellados no se modifican.
+
 - Swagger UI: `http://localhost:8080/swagger-ui.html`
 - Documento OpenAPI: `http://localhost:8080/v3/api-docs`
 - Variables IAM: `IAM_JWT_SECRET`, `IAM_ACCESS_TOKEN_TTL_SECONDS` (de 60 a 3600 segundos), `IAM_REFRESH_TOKEN_TTL_DAYS` (por defecto 30) y `IAM_BOOTSTRAP_*`.

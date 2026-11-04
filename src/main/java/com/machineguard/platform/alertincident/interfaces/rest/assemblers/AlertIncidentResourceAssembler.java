@@ -20,7 +20,7 @@ public class AlertIncidentResourceAssembler {
     public IncidentResource incident(Incident i) {
         return new IncidentResource(i.getId(), i.getOriginMeasurementId(), i.getMonitoringZoneId(),
                 i.getEnvironmentalVariable() == null ? null : i.getEnvironmentalVariable().name(),
-                i.getStatus().name(), i.getOpenedAt(), i.getResolvedAt(), i.getResolvedBy(), i.getResolutionNotes());
+                i.getStatus().name(), i.getOpenedAt(), i.getResolvedAt(), i.getResolvedBy(), i.getResolutionNotes(),i.isHistorical());
     }
 
     public AlertResource alert(Alert a, Incident incident) {
