@@ -62,7 +62,7 @@ public class IngestGatewayReadingsCommandService {
                 if (existing.isPresent()) {
                     var saved=existing.get();
                     if (saved.getMeasuredValue().compareTo(value)!=0 || !Objects.equals(saved.getSensorNodeId(),device.sensorNodeId()))
-                        throw new EnvironmentalMonitoringRuleException("A different reading already exists at capturedAt");
+                        throw new EnvironmentalMonitoringRuleException(EnvironmentalMonitoringRuleException.Reason.READING_CONFLICT,"A different reading already exists at capturedAt");
                     reused++;
                 } else {
                     register.handle(new RegisterMeasurementCommand(command.organizationId(),device.monitoringZoneId(),

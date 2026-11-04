@@ -104,6 +104,27 @@ class GatewayIngestionApiIntegrationTest {
         assertEquals(1,human(get("/api/v1/alerts"),null,200).size());
     }
 
+    @Test void ingestionErrorsHaveStableCodesAndKeepAtomicity() throws Exception {
+        assertEquals("NODE_NOT_AUTHORIZED",ingest("/api/v1/measurements",reading(second,600,11),404).path("code").asText());
+        assertEquals("READING_TIME_INVALID",ingest("/api/v1/measurements",reading(first,-301,11),400).path("code").asText());
+        var invalid=reading(first,600,11); invalid.put("temperature","not-a-number");
+        assertEquals("READING_INVALID",ingest("/api/v1/measurements",invalid,400).path("code").asText());
+        ingest("/api/v1/measurements",reading(first,600,11),201);
+        assertEquals("READING_CONFLICT",ingest("/api/v1/measurements",reading(first,600,12),409).path("code").asText());
+        provision(Set.of(first.sensor(),second.sensor()));
+        jdbc.update("DELETE FROM thresholds WHERE monitoring_zone_id=? AND environmental_variable='HUMIDITY'",second.zone());
+        assertEquals("THRESHOLD_NOT_CONFIGURED",ingest("/api/v1/measurements/batch",Map.of("measurements",
+                List.of(reading(first,590,11),reading(second,580,12))),409).path("code").asText());
+        assertEquals(2,count("measurements"));
+    }
+
+    @Test void credentialFailuresHaveStableCodesWithoutChangingStatus() throws Exception {
+        assertEquals("GATEWAY_CREDENTIAL_REJECTED",result(post("/api/v1/measurements")
+                .header("X-Device-Credential","invalid"),reading(first,600,11),401).path("code").asText());
+        assertEquals("GATEWAY_CREDENTIAL_REJECTED",result(post("/api/v1/measurements"),reading(first,600,11),401).path("code").asText());
+        assertEquals("GATEWAY_INGEST_FORBIDDEN",human(post("/api/v1/measurements"),reading(first,600,11),403).path("code").asText());
+    }
+
     @Test void offsetsAndMicrosecondCanonicalizationPreserveReadingIdentity() throws Exception {
         var body=reading(first,600,11);
         var captured=OffsetDateTime.ofInstant(NOW.minusSeconds(600),ZoneOffset.UTC).withNano(123456789);

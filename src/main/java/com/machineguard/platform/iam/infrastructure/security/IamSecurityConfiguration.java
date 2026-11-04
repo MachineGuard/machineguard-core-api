@@ -29,7 +29,8 @@ public class IamSecurityConfiguration {
                 .httpBasic(basic -> basic.disable())
                 .formLogin(form -> form.disable())
                 .exceptionHandling(errors -> errors.authenticationEntryPoint(
-                        (request, response, exception) -> response.sendError(401, "Authentication required")))
+                        (request, response, exception) -> GatewaySecurityResponse.reject(request,response,401,"Authentication required"))
+                        .accessDeniedHandler((request,response,exception) -> GatewaySecurityResponse.reject(request,response,403,"Access denied")))
                 .addFilterBefore(new JwtAuthenticationFilter(tokens), UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(new GatewayCredentialFilter(gateways), JwtAuthenticationFilter.class)
                 .build();

@@ -43,13 +43,13 @@ public class RegisterMeasurementCommandService {
         MonitoringPoint point = points.findByIdAndMonitoringZoneId(command.monitoringPointId(), zone.getId())
                 .orElseThrow(() -> new EnvironmentalMonitoringNotFoundException("Monitoring point not found in zone"));
         if (zone.getStatus() != MonitoringZoneStatus.ACTIVE || point.getStatus() != MonitoringPointStatus.ACTIVE)
-            throw new EnvironmentalMonitoringRuleException("Zone and point must be active");
+            throw new EnvironmentalMonitoringRuleException(EnvironmentalMonitoringRuleException.Reason.NODE_INACTIVE,"Zone and point must be active");
         SensorNode node = command.sensorNodeId() == null ? null : nodes.findByIdAndMonitoringPointId(command.sensorNodeId(), point.getId())
                 .orElseThrow(() -> new EnvironmentalMonitoringNotFoundException("Sensor node not found in point"));
         if (node != null && node.getStatus() == SensorNodeStatus.INACTIVE)
-            throw new EnvironmentalMonitoringRuleException("Sensor node is inactive");
+            throw new EnvironmentalMonitoringRuleException(EnvironmentalMonitoringRuleException.Reason.NODE_INACTIVE,"Sensor node is inactive");
         Threshold threshold = thresholds.findByMonitoringZoneIdAndEnvironmentalVariable(zone.getId(), command.environmentalVariable())
-                .orElseThrow(() -> new EnvironmentalMonitoringRuleException("Threshold not configured for variable"));
+                .orElseThrow(() -> new EnvironmentalMonitoringRuleException(EnvironmentalMonitoringRuleException.Reason.THRESHOLD_NOT_CONFIGURED,"Threshold not configured for variable"));
         Measurement measurement = Measurement.record(command.organizationId(), zone.getId(), point.getId(),
                 command.sensorNodeId(), command.environmentalVariable(), command.measuredValue(), command.recordedAt(),
                 OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC));
@@ -57,7 +57,7 @@ public class RegisterMeasurementCommandService {
                 command.organizationId(), point.getId(), command.environmentalVariable()).orElse(null);
         if (measurements.existsByOrganizationIdAndMonitoringPointIdAndEnvironmentalVariableAndRecordedAt(
                 command.organizationId(), point.getId(), command.environmentalVariable(), measurement.getRecordedAt()))
-            throw new EnvironmentalMonitoringRuleException("A reading already exists for this point, variable and recordedAt");
+            throw new EnvironmentalMonitoringRuleException(EnvironmentalMonitoringRuleException.Reason.READING_CONFLICT,"A reading already exists for this point, variable and recordedAt");
         measurements.save(measurement);
         // Backfill has a separate event: it cannot rewind live state or physical excursions.
         if (previous != null && measurement.getRecordedAt().isBefore(previous.getRecordedAt())) {

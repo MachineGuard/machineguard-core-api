@@ -6,6 +6,14 @@ de Web/Core/PostgreSQL aislados, cuentas ADMIN/VIEWER y conservación de datos.
 
 REST API central de MachineGuard con los bounded contexts **IAM**, **Environmental Monitoring**, **Alert & Incident Management** y **Traceability & Quality**, desarrollada con Spring Boot 3.5, Spring Security, Spring Data JPA, Flyway y PostgreSQL. Los identificadores son UUID. La documentación OpenAPI y Swagger UI se sirven desde la propia API.
 
+La ingesta de gateway devuelve un `code` estable al rechazar: `READING_INVALID`,
+`READING_TIME_INVALID` o `READING_CONFLICT` identifican una muestra;
+`NODE_NOT_AUTHORIZED`, `NODE_INACTIVE` y `THRESHOLD_NOT_CONFIGURED` requieren
+corregir la configuración del nodo. `GATEWAY_CREDENTIAL_REJECTED` (401) y
+`GATEWAY_INGEST_FORBIDDEN` (403) indican problemas de acceso. Conserva los
+pendientes ante códigos desconocidos. Los estados HTTP y los recibos de éxito
+no cambian; cada lote sigue siendo atómico.
+
 ## Inicio local con Docker Compose
 
 Requiere Docker Desktop con el daemon iniciado y Docker Compose v2. Crea la configuración local y reemplaza los valores de ejemplo antes de iniciar los servicios:
