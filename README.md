@@ -244,3 +244,6 @@ doble local; la suite habitual conserva H2. El runner y los pasos locales están
 y fijar el SHA compañero en el workflow. El acceso privado usa un token de solo
 lectura configurado por Pedro; este cambio no crea secretos ni modifica GitHub.
 Los gates de secretos y dependencias fallan ante hallazgos o consultas incompletas.
+La actualización compatible de Commons Lang y Log4j conserva Boot 3.5.
+Los avisos Spring pendientes mantienen rojo el gate; cerrarlo requiere revisar
+una actualización de plataforma o acceso Enterprise, sin excepciones al escáner.
