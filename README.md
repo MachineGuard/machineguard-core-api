@@ -236,3 +236,11 @@ Los criterios de aceptación de las historias del Sprint 1 (TS06, TS07, TS08, US
 - Toda la batería: `mvn test`. Solo BDD: `mvn test -Dtest=CucumberAcceptanceTest`.
 - Reporte HTML: `target/cucumber-reports/cucumber.html`.
 - GitHub Actions (`.github/workflows/ci.yml`) ejecuta las pruebas en cada push y pull request a `develop` y `main`, y publica el reporte como artefacto.
+
+La CI incluye un job separado con PostgreSQL real y Edge, instalado desde su lock
+con hashes. Ejecuta las live sin omitirlas y una matriz secundaria ThingSpeak con
+doble local; la suite habitual conserva H2. El runner y los pasos locales están en
+`machineguard-edge-api/scripts/ci.md`. Requiere publicar primero las refs auditadas
+y fijar el SHA compañero en el workflow. El acceso privado usa un token de solo
+lectura configurado por Pedro; este cambio no crea secretos ni modifica GitHub.
+Los gates de secretos y dependencias fallan ante hallazgos o consultas incompletas.
