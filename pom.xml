@@ -19,6 +19,10 @@
 
     <properties>
         <java.version>21</java.version>
+        <!-- Verified patch updates within Boot 3.5's existing library lines. -->
+        <jackson-bom.version>2.21.7</jackson-bom.version>
+        <tomcat.version>10.1.61</tomcat.version>
+        <postgresql.version>42.7.14</postgresql.version>
         <springdoc.version>2.8.17</springdoc.version>
         <!-- 7.23.x es la última línea compilada contra JUnit 5.12, la versión que gestiona Spring Boot 3.5 -->
         <cucumber.version>7.23.0</cucumber.version>

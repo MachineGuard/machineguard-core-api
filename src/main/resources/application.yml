@@ -1,3 +1,6 @@
+server:
+  address: ${SERVER_ADDRESS:127.0.0.1}
+
 spring:
   application:
     name: machineguard-core-api
@@ -20,6 +23,9 @@ machineguard:
     max-reading-age-days: ${CORE_MAX_READING_AGE_DAYS:30}
     min-recorded-at: ${CORE_MIN_RECORDED_AT:2026-01-01T00:00:00Z}
   iam:
+    login-limit: ${IAM_LOGIN_LIMIT:5}
+    login-window-seconds: ${IAM_LOGIN_WINDOW_SECONDS:60}
+    login-max-keys: ${IAM_LOGIN_MAX_KEYS:10000}
     jwt-secret: ${IAM_JWT_SECRET:}
     issuer: machineguard-iam
     access-token-ttl-seconds: ${IAM_ACCESS_TOKEN_TTL_SECONDS:900}
@@ -41,6 +47,8 @@ machineguard:
 
 springdoc:
   api-docs:
+    enabled: ${CORE_OPENAPI_ENABLED:false}
     path: /v3/api-docs
   swagger-ui:
+    enabled: ${CORE_OPENAPI_ENABLED:false}
     path: /swagger-ui.html

@@ -1,5 +1,22 @@
 # MachineGuard Core API
 
+Toda escritura humana requiere una sesión vigente, usuario y organización activos
+y el rol actual. Un JWT con sesión revocada o rol anterior devuelve 401; un rol
+vigente sin permiso devuelve 403. Las consultas conservan la validación de firma
+y expiración del JWT. Login, refresh e invitación usan sus propias credenciales;
+la ingesta gateway conserva su frontera independiente.
+
+Login admite cinco intentos por minuto por email normalizado y por IP de conexión.
+Un 429 incluye `Retry-After`; no se confía en `X-Forwarded-For` del cliente.
+El contador es local a una instancia y tiene memoria acotada; al llenarse rechaza
+nuevas identidades hasta que expire la ventana. Varias instancias necesitan un
+control compartido. Las variables están en `.env.example`.
+
+Core y PostgreSQL de Compose solo publican puertos en loopback. OpenAPI/Swagger
+están deshabilitados por defecto; `CORE_OPENAPI_ENABLED=true` los habilita.
+La imagen de Core ejecuta la aplicación como usuario 10001, con escritura temporal
+en `/tmp`. El servidor local escucha en `127.0.0.1` salvo configuración explícita.
+
 Para probar la integración completa en esta PC, consultar el
 [entorno local de testing para Windows](docs/local-testing.md): inicio y parada
 de Web/Core/PostgreSQL aislados, cuentas ADMIN/VIEWER y conservación de datos.
