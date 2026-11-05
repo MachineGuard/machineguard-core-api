@@ -89,7 +89,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           repository: MachineGuard/machineguard-edge-api
-          ref: e93bfe0e694c205206ca3850bb7f00d637d970d5
+          ref: e3e3e6221ec1c3221133e1fc0ac03f5d848793a8
           path: edge
           token: ${{ secrets.MACHINEGUARD_CI_READ_TOKEN }}
           persist-credentials: false
