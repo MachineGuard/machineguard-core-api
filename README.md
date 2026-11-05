@@ -22,6 +22,8 @@ Para resolver se exige evidencia vigente de la variable del incidente en todos
 los puntos activos con sensores elegibles. Con varios sensores se elige la
 captura vigente más reciente por punto; manuales y sensores inactivos no cuentan.
 El detalle devuelve `resolutionBlockReasons`; el POST vuelve a comprobarlo.
+La recuperación de una excursión también exige esas lecturas SENSOR vigentes;
+una medición manual se conserva y puede alertar, pero no acredita recuperación.
 `historical` indica el carácter actual del incidente; el mensaje original se conserva.
 
 ## Inicio local con Docker Compose

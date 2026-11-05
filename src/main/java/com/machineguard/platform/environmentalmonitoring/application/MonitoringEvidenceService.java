@@ -18,9 +18,10 @@ public class MonitoringEvidenceService {
             MeasurementRepository measurements,ThresholdRepository thresholds,MeasurementFreshnessPolicy freshness) {
         this.zones=zones;this.points=points;this.nodes=nodes;this.measurements=measurements;this.thresholds=thresholds;this.freshness=freshness;
     }
-    public record Assessment(boolean withinSafeRange,List<String> reasons) { }
+    public record Assessment(boolean withinSafeRange,List<String> reasons,List<Measurement> selectedMeasurements) { }
     public Assessment assess(UUID organization,UUID zoneId,EnvironmentalVariable variable) {
         Set<String> reasons=new LinkedHashSet<>();
+        List<Measurement> selected=new ArrayList<>();
         var zone=zones.findByIdAndOrganizationId(zoneId,organization);
         if (zone.isEmpty() || zone.get().getStatus()!=MonitoringZoneStatus.ACTIVE) reasons.add("ZONE_INACTIVE");
         var allPoints=points.findByMonitoringZoneIdOrderByNameAsc(zoneId);
@@ -50,9 +51,10 @@ public class MonitoringEvidenceService {
             var current=readings.stream().filter(m->eligible.stream().anyMatch(n->n.getId().equals(m.getSensorNodeId()) && freshness.fresh(m,n)))
                 .max(Comparator.comparing((Measurement m)->m.getRecordedAt().toInstant())
                     .thenComparing(m->m.getReceivedAt().toInstant()).thenComparing(Measurement::getId));
+            current.ifPresent(selected::add);
             if (current.isEmpty()) reasons.add("STALE");
             else if (threshold.isPresent() && !threshold.get().contains(current.get().getMeasuredValue())) reasons.add("OUT_OF_RANGE");
         }
-        return new Assessment(reasons.isEmpty(),List.copyOf(reasons));
+        return new Assessment(reasons.isEmpty(),List.copyOf(reasons),List.copyOf(selected));
     }
 }

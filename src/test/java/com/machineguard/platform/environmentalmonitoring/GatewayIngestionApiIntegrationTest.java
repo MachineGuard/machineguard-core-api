@@ -9,6 +9,10 @@ import com.machineguard.platform.iam.infrastructure.persistence.repository.Organ
 import com.machineguard.platform.iam.infrastructure.persistence.repository.UserJpaRepository;
 import com.machineguard.platform.iam.infrastructure.security.JwtTokenService;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.test.context.event.*;
+import com.machineguard.platform.environmentalmonitoring.domain.events.EnvironmentalMonitoringEvents.SafeRangeRestored;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -30,6 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(properties="spring.datasource.url=${MACHINEGUARD_TEST_DB_URL:jdbc:h2:mem:gatewayingestion;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE}")
 @AutoConfigureMockMvc
+@RecordApplicationEvents
 class GatewayIngestionApiIntegrationTest {
     static final Instant NOW=Instant.parse("2026-10-30T12:00:00Z");
     static final UUID ORG=new UUID(0,1901),OTHER=new UUID(0,1902),ADMIN=new UUID(0,1903);
@@ -38,6 +43,7 @@ class GatewayIngestionApiIntegrationTest {
         @Bean @Primary Clock ingestionClock() { return new Clock() { public ZoneId getZone(){return ZoneOffset.UTC;} public Clock withZone(ZoneId zone){return this;} public Instant instant(){return current;} }; }
     }
     @Autowired MockMvc mvc;
+    @Autowired ApplicationEvents events;
     @Autowired ObjectMapper json;
     @Autowired JdbcTemplate jdbc;
     @Autowired OrganizationJpaRepository organizations;
@@ -353,6 +359,114 @@ class GatewayIngestionApiIntegrationTest {
         ingest("/api/v1/measurements",reading(first,0,11),201);
         assertEquals(NOW,jdbc.queryForObject("SELECT last_measurement_at FROM sensor_nodes WHERE id=?",OffsetDateTime.class,first.sensor()).toInstant());
         assertFalse(human(get("/api/v1/alerts"),null,200).get(0).path("historical").asBoolean());
+    }
+
+    long physicalRestorations() {
+        return events.stream(SafeRangeRestored.class).filter(e->e.monitoringZoneId().equals(first.zone())
+                && e.environmentalVariable().name().equals("TEMPERATURE")).count();
+    }
+    JsonNode manual(Device device,int secondsFromNow,int value) throws Exception {
+        return human(post("/api/v1/environmental-monitoring/measurements"),Map.of("monitoringZoneId",device.zone(),
+            "monitoringPointId",device.point(),"sensorNodeId",device.sensor(),"environmentalVariable","TEMPERATURE",
+            "measuredValue",value,"recordedAt",NOW.plusSeconds(secondsFromNow).toString()),201);
+    }
+    Device requiredDevice(String code,UUID point) {
+        var at=OffsetDateTime.ofInstant(NOW,ZoneOffset.UTC);
+        if (point==null) {
+            point=UUID.randomUUID();
+            jdbc.update("INSERT INTO monitoring_points(id,monitoring_zone_id,name,status,created_at,updated_at) VALUES (?,?,'Required','ACTIVE',?,?)",point,first.zone(),at,at);
+        }
+        UUID sensor=UUID.randomUUID();
+        jdbc.update("INSERT INTO sensor_nodes(id,monitoring_point_id,device_code,sampling_interval_seconds,status,created_at) VALUES (?,?,?,10,'OFFLINE',?)",sensor,point,code,at);
+        return new Device(first.zone(),point,sensor,code);
+    }
+    UUID openPhysicalExcursion() throws Exception {
+        jdbc.update("UPDATE sensor_nodes SET sampling_interval_seconds=10 WHERE id=?",first.sensor());
+        ingest("/api/v1/measurements",reading(first,3,25),201);
+        String id=human(get("/api/v1/alerts"),null,200).get(0).path("incidentId").asText();
+        human(post("/api/v1/incidents/"+id+"/corrective-actions"),Map.of("description","Physical recovery required"),201);
+        assertEquals("ONGOING",jdbc.queryForObject("SELECT status FROM excursions",String.class));
+        return jdbc.queryForObject("SELECT id FROM excursions",UUID.class);
+    }
+    void assertUnrecoveredPhysicalExcursion(UUID id,String reason) throws Exception {
+        assertEquals(0,physicalRestorations());
+        assertEquals("ONGOING",jdbc.queryForObject("SELECT status FROM excursions WHERE id=?",String.class,id));
+        assertNull(jdbc.queryForObject("SELECT ended_at FROM excursions WHERE id=?",OffsetDateTime.class,id));
+        String incident=human(get("/api/v1/alerts"),null,200).get(0).path("incidentId").asText();
+        var detail=human(get("/api/v1/incidents/"+incident),null,200);
+        assertFalse(detail.path("resolutionAllowed").asBoolean());
+        assertTrue(detail.path("resolutionBlockReasons").toString().contains(reason));
+    }
+    void assertPhysicalRecovery(UUID id,int capturedAgo) throws Exception {
+        assertEquals(1,physicalRestorations());
+        assertEquals(1,count("excursions"));assertEquals(1,count("incidents"));
+        assertEquals("CLOSED",jdbc.queryForObject("SELECT status FROM excursions WHERE id=?",String.class,id));
+        assertEquals(NOW.minusSeconds(capturedAgo),jdbc.queryForObject("SELECT ended_at FROM excursions WHERE id=?",OffsetDateTime.class,id).toInstant());
+        var event=events.stream(SafeRangeRestored.class).filter(e->e.monitoringZoneId().equals(first.zone())
+                && e.environmentalVariable().name().equals("TEMPERATURE")).findFirst().orElseThrow();
+        assertEquals(NOW.minusSeconds(capturedAgo),event.restoredAt().toInstant());
+        assertEquals("SENSOR",jdbc.queryForObject("SELECT source FROM measurements WHERE id=?",String.class,event.measurementId()));
+        String incident=human(get("/api/v1/alerts"),null,200).get(0).path("incidentId").asText();
+        assertTrue(human(get("/api/v1/incidents/"+incident),null,200).path("resolutionAllowed").asBoolean());
+        assertEquals("NORMAL",human(get("/api/v1/environmental-monitoring/zones/"+first.zone()),null,200).path("environmentalCondition").asText());
+    }
+    @ParameterizedTest @ValueSource(ints={0,50})
+    void physicalRecoveryIgnoresManualNormalAndItsFutureDate(int manualSeconds) throws Exception {
+        UUID excursion=openPhysicalExcursion();
+        var saved=manual(first,manualSeconds,5);assertEquals("MANUAL",saved.path("source").asText());
+        assertUnrecoveredPhysicalExcursion(excursion,"OUT_OF_RANGE");
+        assertEquals("OUT_OF_RANGE",human(get("/api/v1/environmental-monitoring/zones/"+first.zone()),null,200).path("environmentalCondition").asText());
+        ingest("/api/v1/measurements",reading(first,1,5),201);
+        assertPhysicalRecovery(excursion,1);
+        var receipts=jdbc.queryForList("SELECT id,received_at,source FROM measurements ORDER BY id");
+        ingest("/api/v1/measurements",reading(first,1,5),200);
+        assertEquals(receipts,jdbc.queryForList("SELECT id,received_at,source FROM measurements ORDER BY id"));
+        assertEquals(1,physicalRestorations());assertEquals(5,count("measurements"));
+    }
+    @Test void physicalRecoveryIsNotHiddenByNewerManualDeviation() throws Exception {
+        UUID excursion=openPhysicalExcursion();manual(first,50,25);
+        assertUnrecoveredPhysicalExcursion(excursion,"OUT_OF_RANGE");
+        ingest("/api/v1/measurements",reading(first,1,5),201);
+        assertPhysicalRecovery(excursion,1);
+    }
+    @Test void physicalRecoveryWaitsForSilentRequiredPoint() throws Exception {
+        UUID excursion=openPhysicalExcursion();Device silent=requiredDevice("SILENT-RECOVERY",null);
+        provision(Set.of(first.sensor(),silent.sensor()));
+        ingest("/api/v1/measurements",reading(first,2,5),201);
+        assertUnrecoveredPhysicalExcursion(excursion,"MISSING_POINT");
+        manual(silent,0,5);assertUnrecoveredPhysicalExcursion(excursion,"MISSING_POINT");
+        ingest("/api/v1/measurements",reading(silent,1,5),201);
+        assertPhysicalRecovery(excursion,1);
+    }
+    @Test void physicalRecoveryWaitsForFreshCaptureInEveryRequiredPoint() throws Exception {
+        UUID excursion=openPhysicalExcursion();Device backlog=requiredDevice("BACKLOG-RECOVERY",null);
+        provision(Set.of(first.sensor(),backlog.sensor()));
+        ingest("/api/v1/measurements",reading(backlog,120,5),201);
+        ingest("/api/v1/measurements",reading(first,2,5),201);
+        assertUnrecoveredPhysicalExcursion(excursion,"STALE");
+        manual(backlog,50,5);assertUnrecoveredPhysicalExcursion(excursion,"STALE");
+        ingest("/api/v1/measurements",reading(backlog,1,5),201);
+        assertPhysicalRecovery(excursion,1);
+    }
+    @Test void physicalRecoveryDoesNotUseLegacyUnknownFromAnotherPoint() throws Exception {
+        UUID excursion=openPhysicalExcursion();Device legacy=requiredDevice("LEGACY-RECOVERY",null);
+        provision(Set.of(first.sensor(),legacy.sensor()));
+        ingest("/api/v1/measurements",reading(legacy,2,5),201);
+        jdbc.update("UPDATE measurements SET source='LEGACY_UNKNOWN' WHERE sensor_node_id=?",legacy.sensor());
+        ingest("/api/v1/measurements",reading(first,1,5),201);
+        assertUnrecoveredPhysicalExcursion(excursion,"MISSING_POINT");
+        ingest("/api/v1/measurements",reading(legacy,0,5),201);
+        assertPhysicalRecovery(excursion,0);
+    }
+    @Test void physicalRecoveryUsesEligibleSensorSelectionAndSkipsInactiveSensors() throws Exception {
+        UUID excursion=openPhysicalExcursion();Device alternate=requiredDevice("ALTERNATE-RECOVERY",first.point());
+        Device inactive=requiredDevice("INACTIVE-RECOVERY",first.point());
+        provision(Set.of(first.sensor(),alternate.sensor(),inactive.sensor()));
+        ingest("/api/v1/measurements",reading(inactive,0,25),201);
+        jdbc.update("UPDATE sensor_nodes SET status='INACTIVE' WHERE id=?",inactive.sensor());
+        manual(first,50,25);
+        ingest("/api/v1/measurements",reading(alternate,1,5),201);
+        assertPhysicalRecovery(excursion,1);
     }
 
 }
