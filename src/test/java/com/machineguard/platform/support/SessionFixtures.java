@@ -11,7 +11,7 @@ import java.util.*;
 public final class SessionFixtures {
     private SessionFixtures() { }
     public static String token(JdbcTemplate jdbc,JwtTokenService tokens,UUID user,UUID org,Role role,UUID ignoredFixtureSid) {
-        var at=Instant.parse("2026-01-01T00:00:00Z");var end=Instant.parse("2030-01-01T00:00:00Z");
+        var at=OffsetDateTime.parse("2026-01-01T00:00:00Z");var end=OffsetDateTime.parse("2030-01-01T00:00:00Z");
         if(jdbc.queryForObject("SELECT count(*) FROM organizations WHERE id=?",Integer.class,org)==0)
             jdbc.update("INSERT INTO organizations(id,name,subscription_plan,status,created_at,updated_at) VALUES (?,'Fixture','FREE','ACTIVE',?,?)",org,at,at);
         var existing=jdbc.queryForList("SELECT organization_id,role FROM users WHERE id=?",user);

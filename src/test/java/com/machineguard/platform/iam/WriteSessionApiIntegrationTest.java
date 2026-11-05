@@ -13,20 +13,24 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest(properties={"spring.datasource.url=${MACHINEGUARD_TEST_DB_URL:jdbc:h2:mem:writesession;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE}",
-        "machineguard.iam.bootstrap.enabled=true","machineguard.iam.bootstrap.organization-name=Write tests",
-        "machineguard.iam.bootstrap.admin-name=Synthetic administrator","machineguard.iam.bootstrap.admin-email=write@f5.invalid",
-        "machineguard.iam.bootstrap.admin-password=synthetic write password"})
+@SpringBootTest(properties="spring.datasource.url=${MACHINEGUARD_TEST_DB_URL:jdbc:h2:mem:writesession;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE}")
 @AutoConfigureMockMvc
 @org.springframework.test.annotation.DirtiesContext(classMode=org.springframework.test.annotation.DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
 class WriteSessionApiIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
     @Autowired JdbcTemplate jdbc;
+    @Autowired org.springframework.security.crypto.password.PasswordEncoder passwords;
     @Autowired com.machineguard.platform.iam.infrastructure.security.JwtTokenService tokens;
     @org.springframework.beans.factory.annotation.Value("${machineguard.iam.jwt-secret}") String signingKey;
     String access,refresh;UUID user,organization;
     @BeforeEach void login() throws Exception {
+        if(jdbc.queryForObject("SELECT count(*) FROM users WHERE email='write@f5.invalid'",Integer.class)==0) {
+            UUID org=UUID.randomUUID(),owner=UUID.randomUUID();var at=java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC);
+            jdbc.update("INSERT INTO organizations(id,name,subscription_plan,status,created_at,updated_at) VALUES (?,'Write tests','FREE','ACTIVE',?,?)",org,at,at);
+            jdbc.update("INSERT INTO users(id,organization_id,email,password_hash,full_name,role,status,created_at,updated_at) VALUES (?,?,'write@f5.invalid',?,'Synthetic administrator','ADMIN','ACTIVE',?,?)",
+                    owner,org,passwords.encode("synthetic write password"),at,at);
+        }
         var body=mvc.perform(post("/api/v1/auth/login").with(r->{r.setRemoteAddr("127.0.0.2");return r;})
             .contentType(MediaType.APPLICATION_JSON).content("{\"email\":\"write@f5.invalid\",\"password\":\"synthetic write password\"}"))
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
@@ -57,7 +61,7 @@ class WriteSessionApiIntegrationTest {
                 mac.init(new javax.crypto.spec.SecretKeySpec(signingKey.getBytes(java.nio.charset.StandardCharsets.UTF_8),"HmacSHA256"));
                 token=signed+"."+Base64.getUrlEncoder().withoutPadding().encodeToString(mac.doFinal(signed.getBytes(java.nio.charset.StandardCharsets.US_ASCII)));
             }
-            case "expired-session" -> jdbc.update("UPDATE authentication_sessions SET issued_at=?,expires_at=? WHERE id=?",java.time.Instant.now().minusSeconds(20),java.time.Instant.now().minusSeconds(1),sid);
+            case "expired-session" -> jdbc.update("UPDATE authentication_sessions SET issued_at=?,expires_at=? WHERE id=?",java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC).minusSeconds(20),java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC).minusSeconds(1),sid);
             case "inactive-user" -> jdbc.update("UPDATE users SET status='INACTIVE' WHERE id=?",user);
             case "suspended-organization" -> jdbc.update("UPDATE organizations SET status='SUSPENDED' WHERE id=?",organization);
             case "changed-role" -> jdbc.update("UPDATE users SET role='VIEWER' WHERE id=?",user);
