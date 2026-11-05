@@ -34,7 +34,7 @@ public class IncidentQueryService {
 
     /** Incidente con su alerta (reconocimiento incluido) y las acciones correctivas registradas. */
     public record IncidentDetail(Incident incident, Alert alert, List<CorrectiveAction> correctiveActions,
-                                 boolean withinSafeRange) {
+                                 boolean withinSafeRange,List<String> resolutionBlockReasons) {
     }
 
     public List<Incident> handle(GetIncidentHistoryQuery query) {
@@ -45,8 +45,8 @@ public class IncidentQueryService {
     public IncidentDetail handle(GetIncidentByIdQuery query) {
         Incident incident = incidents.findByIdAndOrganizationId(query.incidentId(), query.organizationId())
                 .orElseThrow(() -> new AlertIncidentNotFoundException("Incidente " + query.incidentId() + " no encontrado"));
+        var reasons=environment.resolutionBlockReasons(query.organizationId(),incident.getMonitoringZoneId(),incident.getEnvironmentalVariable());
         return new IncidentDetail(incident, alerts.findByIncidentId(incident.getId()).orElse(null),
-                actions.findByIncidentId(incident.getId()), environment.isWithinSafeRange(query.organizationId(),
-                        incident.getMonitoringZoneId(), incident.getEnvironmentalVariable()));
+                actions.findByIncidentId(incident.getId()), reasons.isEmpty(),reasons);
     }
 }

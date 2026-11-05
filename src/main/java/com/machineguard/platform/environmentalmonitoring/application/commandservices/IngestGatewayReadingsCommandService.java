@@ -65,7 +65,7 @@ public class IngestGatewayReadingsCommandService {
                         throw new EnvironmentalMonitoringRuleException(EnvironmentalMonitoringRuleException.Reason.READING_CONFLICT,"A different reading already exists at capturedAt");
                     reused++;
                 } else {
-                    register.handle(new RegisterMeasurementCommand(command.organizationId(),device.monitoringZoneId(),
+                    register.handleSensor(new RegisterMeasurementCommand(command.organizationId(),device.monitoringZoneId(),
                             device.monitoringPointId(),device.sensorNodeId(),variable,value,at));
                     created++;
                 }

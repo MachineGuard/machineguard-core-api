@@ -151,6 +151,7 @@ class MeasurementTimeApiIntegrationTest {
         ingest(-100,5,201);ingest(-300,25,201);UUID id=incident();UUID orphan=orphanExcursion(-250,-200);
         var report=call(post("/api/v1/traceability/reports"),Map.of("monitoringZoneId",zone,"periodStart",NOW.minusSeconds(3600),"periodEnd",NOW),201,admin);
         UUID reportId=UUID.fromString(report.get("id").asText());String content=jdbc.queryForObject("SELECT content FROM traceability_reports WHERE id=?",String.class,reportId);
+        ingest(-10,5,201); // Fresh physical recovery is now required even for a historical incident.
         resolve(id);
         assertNull(jdbc.queryForObject("SELECT incident_id FROM excursions WHERE id=?",UUID.class,orphan));
         assertEquals(content,jdbc.queryForObject("SELECT content FROM traceability_reports WHERE id=?",String.class,reportId));

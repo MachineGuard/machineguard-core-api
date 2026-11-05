@@ -72,8 +72,8 @@ class MonitoringConfigurationApiIntegrationTest {
                 "sensorNodeId", sensorId, "environmentalVariable", "TEMPERATURE", "measuredValue", 11.2,
                 "recordedAt", OffsetDateTime.now().minusMinutes(1).toString())).andExpect(status().isCreated());
         mvc.perform(get(BASE + "/zones/" + zoneId).header("Authorization", auth(ORG, Role.VIEWER)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.environmentalCondition").value("OUT_OF_RANGE"))
-                .andExpect(jsonPath("$.points.length()").value(1)).andExpect(jsonPath("$.sensorsOnline").value(1))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.environmentalCondition").value("STALE"))
+                .andExpect(jsonPath("$.points.length()").value(1)).andExpect(jsonPath("$.sensorsOnline").value(0))
                 .andExpect(jsonPath("$.thresholds.length()").value(1));
         mvc.perform(get("/api/v1/traceability/excursions/open").header("Authorization", auth(ORG, Role.VIEWER)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));

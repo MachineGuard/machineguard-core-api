@@ -14,6 +14,16 @@ corregir la configuración del nodo. `GATEWAY_CREDENTIAL_REJECTED` (401) y
 pendientes ante códigos desconocidos. Los estados HTTP y los recibos de éxito
 no cambian; cada lote sigue siendo atómico.
 
+Las mediciones nuevas indican `source`: `SENSOR` desde el gateway y `MANUAL`
+desde usuarios. Las anteriores quedan como `LEGACY_UNKNOWN`. Solo evidencia
+física acredita disponibilidad y recuperación. La ventana es el mayor de 30 s
+y tres intervalos del sensor; consulta captura, recepción, edad y `freshness`.
+Para resolver se exige evidencia vigente de la variable del incidente en todos
+los puntos activos con sensores elegibles. Con varios sensores se elige la
+captura vigente más reciente por punto; manuales y sensores inactivos no cuentan.
+El detalle devuelve `resolutionBlockReasons`; el POST vuelve a comprobarlo.
+`historical` indica el carácter actual del incidente; el mensaje original se conserva.
+
 ## Inicio local con Docker Compose
 
 Requiere Docker Desktop con el daemon iniciado y Docker Compose v2. Crea la configuración local y reemplaza los valores de ejemplo antes de iniciar los servicios:

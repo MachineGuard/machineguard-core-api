@@ -14,6 +14,8 @@ spring:
 
 machineguard:
   monitoring:
+    freshness-minimum-seconds: ${CORE_FRESHNESS_MINIMUM_SECONDS:30}
+    freshness-interval-multiplier: ${CORE_FRESHNESS_INTERVAL_MULTIPLIER:3}
     max-future-seconds: ${CORE_MAX_FUTURE_SECONDS:60}
     max-reading-age-days: ${CORE_MAX_READING_AGE_DAYS:30}
     min-recorded-at: ${CORE_MIN_RECORDED_AT:2026-01-01T00:00:00Z}

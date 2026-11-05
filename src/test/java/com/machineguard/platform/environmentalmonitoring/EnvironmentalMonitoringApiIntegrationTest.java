@@ -81,7 +81,7 @@ class EnvironmentalMonitoringApiIntegrationTest {
         return record(point, node.getId(), EnvironmentalVariable.TEMPERATURE, value, minute);
     }
     Measurement record(MonitoringPoint target, UUID sensor, EnvironmentalVariable variable, String value, int minute) {
-        return commands.handle(new RegisterMeasurementCommand(ORG, zone.getId(), target.getId(), sensor, variable,
+        return commands.handleSensor(new RegisterMeasurementCommand(ORG, zone.getId(), target.getId(), sensor, variable,
                 new BigDecimal(value), NOW.minusHours(1).plusMinutes(minute)));
     }
     String auth(UUID org, Role role) {
@@ -174,7 +174,7 @@ class EnvironmentalMonitoringApiIntegrationTest {
         mvc.perform(get(BASE + "/measurements/latest").header("Authorization", auth(ORG, Role.VIEWER)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2));
         mvc.perform(get(BASE + "/zones/" + zone.getId()).header("Authorization", auth(ORG, Role.VIEWER)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.environmentalCondition").value("NORMAL"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.environmentalCondition").value("STALE"))
                 .andExpect(jsonPath("$.sensorsOnline").value(1)).andExpect(jsonPath("$.thresholds.length()").value(2));
     }
     @Test void historyIsInclusiveFilteredAndPaginated() throws Exception {
@@ -261,7 +261,7 @@ class EnvironmentalMonitoringApiIntegrationTest {
     }
 
     @Test void migratedMeasurementSchemaMatchesNumericNullableAndTimestampContract() {
-        assertEquals(9, jdbc.queryForObject("SELECT count(*) FROM information_schema.columns WHERE table_name='measurements'", Integer.class));
+        assertEquals(10, jdbc.queryForObject("SELECT count(*) FROM information_schema.columns WHERE table_name='measurements'", Integer.class));
         assertEquals(6, jdbc.queryForObject("SELECT numeric_precision FROM information_schema.columns WHERE table_name='measurements' AND column_name='measured_value'", Integer.class));
         assertEquals(2, jdbc.queryForObject("SELECT numeric_scale FROM information_schema.columns WHERE table_name='measurements' AND column_name='measured_value'", Integer.class));
         assertEquals("YES", jdbc.queryForObject("SELECT is_nullable FROM information_schema.columns WHERE table_name='measurements' AND column_name='sensor_node_id'", String.class));

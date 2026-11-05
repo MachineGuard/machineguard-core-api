@@ -33,8 +33,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class GatewayIngestionApiIntegrationTest {
     static final Instant NOW=Instant.parse("2026-10-30T12:00:00Z");
     static final UUID ORG=new UUID(0,1901),OTHER=new UUID(0,1902),ADMIN=new UUID(0,1903);
+    static Instant current=NOW;
     @TestConfiguration static class Configuration {
-        @Bean @Primary Clock ingestionClock() { return Clock.fixed(NOW,ZoneOffset.UTC); }
+        @Bean @Primary Clock ingestionClock() { return new Clock() { public ZoneId getZone(){return ZoneOffset.UTC;} public Clock withZone(ZoneId zone){return this;} public Instant instant(){return current;} }; }
     }
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
@@ -48,6 +49,7 @@ class GatewayIngestionApiIntegrationTest {
     String admin,credential,gatewayId;
 
     @BeforeEach void setup() throws Exception {
+        current=NOW;
         for (String table:List.of("traceability_report_excursions","traceability_reports","non_conformities","excursions",
                 "corrective_actions","alerts","incidents","gateway_sensor_nodes","gateway_credentials","measurements",
                 "thresholds","sensor_nodes","monitoring_points","monitoring_zones","initial_admin_invitations",
@@ -220,4 +222,137 @@ class GatewayIngestionApiIntegrationTest {
         assertEquals(List.of(200,201),race(Map.of("measurements",List.of(a,b)),Map.of("measurements",List.of(b,a)),"/api/v1/measurements/batch"));
         assertEquals(4,count("measurements")); assertEquals(2,count("incidents"));
     }
+    String actionableIncident() throws Exception {
+        ingest("/api/v1/measurements",reading(first,10,11),201);
+        String id=human(get("/api/v1/alerts"),null,200).get(0).path("incidentId").asText();
+        human(post("/api/v1/incidents/"+id+"/corrective-actions"),Map.of("description","Restore cooling"),201);
+        return id;
+    }
+    @Test void freshnessExpiresWithoutQueryWritesAndResolutionRevalidates() throws Exception {
+        jdbc.update("UPDATE sensor_nodes SET sampling_interval_seconds=10 WHERE id=?",first.sensor());
+        String id=actionableIncident();
+        ingest("/api/v1/measurements",reading(first,0,5),201);
+        assertTrue(human(get("/api/v1/incidents/"+id),null,200).path("resolutionAllowed").asBoolean());
+        current=NOW.plusSeconds(30);
+        assertTrue(human(get("/api/v1/incidents/"+id),null,200).path("resolutionAllowed").asBoolean());
+        current=NOW.plusSeconds(31);
+        var detail=human(get("/api/v1/incidents/"+id),null,200);
+        assertFalse(detail.path("resolutionAllowed").asBoolean());
+        assertTrue(detail.path("resolutionBlockReasons").toString().contains("STALE"));
+        var zone=human(get("/api/v1/environmental-monitoring/zones/"+first.zone()),null,200);
+        assertEquals("STALE",zone.path("environmentalCondition").asText());
+        assertEquals("OFFLINE",zone.path("sensors").get(0).path("availability").asText());
+        assertEquals("ONLINE",jdbc.queryForObject("SELECT status FROM sensor_nodes WHERE id=?",String.class,first.sensor()));
+        human(post("/api/v1/incidents/"+id+"/resolve"),null,409);
+    }
+    @Test void manualCannotForgeSourceOrBringNodeOnline() throws Exception {
+        var body=new HashMap<String,Object>(Map.of("monitoringZoneId",first.zone(),"monitoringPointId",first.point(),
+                "sensorNodeId",first.sensor(),"environmentalVariable","TEMPERATURE","measuredValue",5,
+                "recordedAt",NOW.toString(),"source","SENSOR"));
+        var recorded=human(post("/api/v1/environmental-monitoring/measurements"),body,201);
+        assertEquals("MANUAL",recorded.path("source").asText());
+        assertEquals("OFFLINE",jdbc.queryForObject("SELECT status FROM sensor_nodes WHERE id=?",String.class,first.sensor()));
+        assertNull(jdbc.queryForObject("SELECT last_measurement_at FROM sensor_nodes WHERE id=?",OffsetDateTime.class,first.sensor()));
+    }
+    @Test void silentPointCannotBeRemovedFromRequiredCoverage() throws Exception {
+        String id=actionableIncident();
+        ingest("/api/v1/measurements",reading(first,0,5),201);
+        UUID point=UUID.randomUUID(),sensor=UUID.randomUUID();var at=OffsetDateTime.ofInstant(NOW,ZoneOffset.UTC);
+        jdbc.update("INSERT INTO monitoring_points(id,monitoring_zone_id,name,status,created_at,updated_at) VALUES (?,?,'Silent','ACTIVE',?,?)",point,first.zone(),at,at);
+        jdbc.update("INSERT INTO sensor_nodes(id,monitoring_point_id,device_code,sampling_interval_seconds,status,created_at) VALUES (?,?,?,10,'OFFLINE',?)",sensor,point,"silent-test",at);
+        var detail=human(get("/api/v1/incidents/"+id),null,200);
+        assertFalse(detail.path("resolutionAllowed").asBoolean());
+        assertTrue(detail.path("resolutionBlockReasons").toString().contains("MISSING_POINT"));
+        human(post("/api/v1/incidents/"+id+"/resolve"),null,409);
+    }
+    @Test void recentReceptionOfOldCaptureCannotAuthorizeResolution() throws Exception {
+        jdbc.update("UPDATE sensor_nodes SET sampling_interval_seconds=10 WHERE id=?",first.sensor());
+        String id=actionableIncident();
+        ingest("/api/v1/measurements",reading(first,0,5),201);
+        current=NOW.plusSeconds(60);
+        ingest("/api/v1/measurements",reading(first,-1,5),201);
+        var detail=human(get("/api/v1/incidents/"+id),null,200);
+        assertFalse(detail.path("resolutionAllowed").asBoolean());
+        human(post("/api/v1/incidents/"+id+"/resolve"),null,409);
+    }
+    @Test void replayKeepsSourceAndReceptionAndManualDoesNotHidePhysicalDeviation() throws Exception {
+        String id=actionableIncident();
+        var original=human(get("/api/v1/environmental-monitoring/measurements/latest").param("monitoringZoneId",first.zone().toString()),null,200);
+        current=NOW.plusSeconds(15);
+        ingest("/api/v1/measurements",reading(first,10,11),200);
+        var replay=human(get("/api/v1/environmental-monitoring/measurements/latest").param("monitoringZoneId",first.zone().toString()),null,200);
+        assertEquals("SENSOR",replay.get(0).path("source").asText());
+        assertEquals(original.get(0).path("receivedAt"),replay.get(0).path("receivedAt"));
+        human(post("/api/v1/environmental-monitoring/measurements"),Map.of("monitoringZoneId",first.zone(),
+            "monitoringPointId",first.point(),"sensorNodeId",first.sensor(),"environmentalVariable","TEMPERATURE",
+            "measuredValue",5,"recordedAt",NOW.toString()),201);
+        assertFalse(human(get("/api/v1/incidents/"+id),null,200).path("resolutionAllowed").asBoolean());
+    }
+
+    @Test void legacyUnknownAndManualOnlyCannotCreditPhysicalCoverage() throws Exception {
+        String id=actionableIncident();ingest("/api/v1/measurements",reading(first,0,5),201);
+        assertEquals("SENSOR",human(get("/api/v1/environmental-monitoring/measurements/latest").param("monitoringZoneId",first.zone().toString()),null,200).get(0).path("source").asText());
+        jdbc.update("UPDATE measurements SET source='LEGACY_UNKNOWN'");
+        var legacy=human(get("/api/v1/incidents/"+id),null,200);
+        assertFalse(legacy.path("resolutionAllowed").asBoolean());
+        assertTrue(legacy.path("resolutionBlockReasons").toString().contains("LEGACY_UNKNOWN"));
+        var zone=human(get("/api/v1/environmental-monitoring/zones/"+first.zone()),null,200);
+        assertEquals("OFFLINE",zone.path("sensors").get(0).path("availability").asText());
+        var before=jdbc.queryForObject("SELECT last_measurement_at FROM sensor_nodes WHERE id=?",OffsetDateTime.class,first.sensor());
+        human(post("/api/v1/environmental-monitoring/measurements"),Map.of("monitoringZoneId",first.zone(),
+            "monitoringPointId",first.point(),"sensorNodeId",first.sensor(),"environmentalVariable","TEMPERATURE",
+            "measuredValue",5,"recordedAt",NOW.plusSeconds(1).toString()),201);
+        var manual=human(get("/api/v1/incidents/"+id),null,200);
+        assertTrue(manual.path("resolutionBlockReasons").toString().contains("MANUAL_ONLY"));
+        assertEquals(before.toInstant(),jdbc.queryForObject("SELECT last_measurement_at FROM sensor_nodes WHERE id=?",OffsetDateTime.class,first.sensor()).toInstant());
+        human(post("/api/v1/incidents/"+id+"/resolve"),null,409);
+    }
+    @Test void oneFreshEligibleSensorCoversPointAndManualDoesNotHideIt() throws Exception {
+        jdbc.update("UPDATE sensor_nodes SET sampling_interval_seconds=10 WHERE id=?",first.sensor());
+        String id=actionableIncident();UUID sensor=UUID.randomUUID();var at=OffsetDateTime.ofInstant(NOW,ZoneOffset.UTC);
+        jdbc.update("INSERT INTO sensor_nodes(id,monitoring_point_id,device_code,sampling_interval_seconds,status,created_at) VALUES (?,?,?,10,'OFFLINE',?)",sensor,first.point(),"alternate",at);
+        provision(Set.of(first.sensor(),sensor));
+        var body=reading(first,0,5);body.put("deviceCode","alternate");ingest("/api/v1/measurements",body,201);
+        human(post("/api/v1/environmental-monitoring/measurements"),Map.of("monitoringZoneId",first.zone(),
+            "monitoringPointId",first.point(),"sensorNodeId",first.sensor(),"environmentalVariable","TEMPERATURE",
+            "measuredValue",11,"recordedAt",NOW.plusSeconds(1).toString()),201);
+        current=NOW.plusSeconds(25); // First sensor's deviation is stale, alternative is still fresh.
+        assertTrue(human(get("/api/v1/incidents/"+id),null,200).path("resolutionAllowed").asBoolean());
+        jdbc.update("UPDATE sensor_nodes SET status='INACTIVE' WHERE id=?",sensor);
+        assertFalse(human(get("/api/v1/incidents/"+id),null,200).path("resolutionAllowed").asBoolean());
+        jdbc.update("UPDATE monitoring_points SET status='INACTIVE' WHERE id=?",first.point());
+        assertTrue(human(get("/api/v1/incidents/"+id),null,200).path("resolutionBlockReasons").toString().contains("NO_REQUIRED_POINTS"));
+    }
+    @Test void resolutionUsesIncidentVariableAndRechecksThresholdChanges() throws Exception {
+        String id=actionableIncident();var body=reading(first,0,5);body.put("humidity",90);ingest("/api/v1/measurements",body,201);
+        assertTrue(human(get("/api/v1/incidents/"+id),null,200).path("resolutionAllowed").asBoolean());
+        jdbc.update("UPDATE thresholds SET maximum_value=4 WHERE monitoring_zone_id=? AND environmental_variable='TEMPERATURE'",first.zone());
+        human(post("/api/v1/incidents/"+id+"/resolve"),null,409);
+        assertTrue(human(get("/api/v1/incidents/"+id),null,200).path("resolutionBlockReasons").toString().contains("OUT_OF_RANGE"));
+        jdbc.update("DELETE FROM thresholds WHERE monitoring_zone_id=? AND environmental_variable='TEMPERATURE'",first.zone());
+        assertTrue(human(get("/api/v1/incidents/"+id),null,200).path("resolutionBlockReasons").toString().contains("MISSING_THRESHOLD"));
+        human(post("/api/v1/incidents/"+id+"/resolve"),null,409);
+    }
+    @Test void historicalLabelChangesButOriginalAlertMessageIsPreserved() throws Exception {
+        ingest("/api/v1/measurements",reading(first,60,5),201);
+        ingest("/api/v1/measurements",reading(first,120,11),201);
+        var original=human(get("/api/v1/alerts"),null,200).get(0);String id=original.path("incidentId").asText();
+        assertTrue(original.path("historical").asBoolean());
+        String message=original.path("message").asText();
+        ingest("/api/v1/measurements",reading(first,30,11),201);
+        var actual=human(get("/api/v1/incidents/"+id),null,200);
+        assertFalse(actual.path("incident").path("historical").asBoolean());
+        assertFalse(actual.path("alert").path("historical").asBoolean());
+        assertEquals(message,actual.path("alert").path("message").asText());
+        assertEquals(1,count("incidents"));assertEquals(1,count("late_deviations"));
+    }
+    @Test void manualFutureTimestampCannotPreventPhysicalProducerUpdatingNode() throws Exception {
+        human(post("/api/v1/environmental-monitoring/measurements"),Map.of("monitoringZoneId",first.zone(),
+            "monitoringPointId",first.point(),"sensorNodeId",first.sensor(),"environmentalVariable","TEMPERATURE",
+            "measuredValue",5,"recordedAt",NOW.plusSeconds(50).toString()),201);
+        ingest("/api/v1/measurements",reading(first,0,11),201);
+        assertEquals(NOW,jdbc.queryForObject("SELECT last_measurement_at FROM sensor_nodes WHERE id=?",OffsetDateTime.class,first.sensor()).toInstant());
+        assertFalse(human(get("/api/v1/alerts"),null,200).get(0).path("historical").asBoolean());
+    }
+
 }

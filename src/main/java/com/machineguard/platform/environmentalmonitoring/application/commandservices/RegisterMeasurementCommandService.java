@@ -36,6 +36,11 @@ public class RegisterMeasurementCommandService {
 
     @Transactional
     public Measurement handle(RegisterMeasurementCommand command) {
+        return register(command,MeasurementSource.MANUAL);
+    }
+    @Transactional
+    public Measurement handleSensor(RegisterMeasurementCommand command) { return register(command,MeasurementSource.SENSOR); }
+    private Measurement register(RegisterMeasurementCommand command,MeasurementSource source) {
         timePolicy.validate(command.recordedAt());
         // Serialize zone ingestion: concurrent points must not prematurely restore a zone-wide excursion.
         MonitoringZone zone = zones.lockByIdAndOrganizationId(command.monitoringZoneId(), command.organizationId())
@@ -52,9 +57,13 @@ public class RegisterMeasurementCommandService {
                 .orElseThrow(() -> new EnvironmentalMonitoringRuleException(EnvironmentalMonitoringRuleException.Reason.THRESHOLD_NOT_CONFIGURED,"Threshold not configured for variable"));
         Measurement measurement = Measurement.record(command.organizationId(), zone.getId(), point.getId(),
                 command.sensorNodeId(), command.environmentalVariable(), command.measuredValue(), command.recordedAt(),
-                OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC));
-        Measurement previous = measurements.findFirstByOrganizationIdAndMonitoringPointIdAndEnvironmentalVariableOrderByRecordedAtDesc(
-                command.organizationId(), point.getId(), command.environmentalVariable()).orElse(null);
+                OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC),source);
+        Measurement previous = source==MeasurementSource.SENSOR
+                ? measurements.findLatestSensorMeasurements(command.organizationId(),zone.getId()).stream()
+                    .filter(m->m.getMonitoringPointId().equals(point.getId()) && m.getEnvironmentalVariable()==command.environmentalVariable())
+                    .max(java.util.Comparator.comparing(m->m.getRecordedAt().toInstant())).orElse(null)
+                : measurements.findFirstByOrganizationIdAndMonitoringPointIdAndEnvironmentalVariableOrderByRecordedAtDesc(
+                    command.organizationId(),point.getId(),command.environmentalVariable()).orElse(null);
         if (measurements.existsByOrganizationIdAndMonitoringPointIdAndEnvironmentalVariableAndRecordedAt(
                 command.organizationId(), point.getId(), command.environmentalVariable(), measurement.getRecordedAt()))
             throw new EnvironmentalMonitoringRuleException(EnvironmentalMonitoringRuleException.Reason.READING_CONFLICT,"A reading already exists for this point, variable and recordedAt");
@@ -67,7 +76,7 @@ public class RegisterMeasurementCommandService {
                         threshold.getMinimumValue(),threshold.getMaximumValue(),measurement.getRecordedAt(),measurement.getReceivedAt()));
             return measurement;
         }
-        if (node != null) {
+        if (node != null && source==MeasurementSource.SENSOR) {
             node.recordMeasurement(measurement.getRecordedAt());
             nodes.save(node);
         }

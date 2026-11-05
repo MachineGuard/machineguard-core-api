@@ -84,6 +84,8 @@ class AlertIncidentApiIntegrationTest {
                     zone, ORG, "Zone", NOW, NOW);
             jdbc.update("INSERT INTO monitoring_points(id,monitoring_zone_id,name,status,created_at,updated_at) VALUES (?,?,?,'ACTIVE',?,?)",
                     point, zone, "Point", NOW, NOW);
+            jdbc.update("INSERT INTO sensor_nodes(id,monitoring_point_id,device_code,sampling_interval_seconds,status,created_at) VALUES (?,?,?,60,'OFFLINE',?)",
+                    point,point,"fixture-"+point,NOW);
             for (String variable : java.util.List.of("TEMPERATURE", "HUMIDITY")) {
                 jdbc.update("INSERT INTO thresholds(id,monitoring_zone_id,environmental_variable,minimum_value,maximum_value,created_at,updated_at) VALUES (?,?,?,2,8,?,?)",
                         UUID.randomUUID(), zone, variable, NOW, NOW);
@@ -111,8 +113,8 @@ class AlertIncidentApiIntegrationTest {
     }
 
     private void reading(UUID id, UUID zone, UUID point, String variable, String value, Instant at) {
-        jdbc.update("INSERT INTO measurements(id,organization_id,monitoring_zone_id,monitoring_point_id,environmental_variable,measured_value,recorded_at,received_at) VALUES (?,?,?,?,?,?,?,?)",
-                id, ORG, zone, point, variable, new BigDecimal(value), at, NOW);
+        jdbc.update("INSERT INTO measurements(id,organization_id,monitoring_zone_id,monitoring_point_id,sensor_node_id,source,environmental_variable,measured_value,recorded_at,received_at) VALUES (?,?,?,?,?,'SENSOR',?,?,?,?)",
+                id, ORG, zone, point, point, variable, new BigDecimal(value), at, NOW);
     }
 
     private void restore() {

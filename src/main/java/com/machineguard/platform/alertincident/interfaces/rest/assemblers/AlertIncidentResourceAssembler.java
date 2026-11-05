@@ -25,12 +25,12 @@ public class AlertIncidentResourceAssembler {
 
     public AlertResource alert(Alert a, Incident incident) {
         return new AlertResource(a.getId(), a.getIncidentId(), incident.getMonitoringZoneId(), a.getSeverity().name(),
-                a.getStatus().name(), a.getMessage(), a.getRaisedAt(), a.getAcknowledgedAt(), a.getEscalatedAt());
+                a.getStatus().name(), a.getMessage(), a.getRaisedAt(), a.getAcknowledgedAt(), a.getEscalatedAt(),incident.isHistorical());
     }
 
     public AlertResource alert(AlertSummary a) {
         return new AlertResource(a.id(), a.incidentId(), a.monitoringZoneId(), a.severity().name(),
-                a.status().name(), a.message(), a.raisedAt(), a.acknowledgedAt(), a.escalatedAt());
+                a.status().name(), a.message(), a.raisedAt(), a.acknowledgedAt(), a.escalatedAt(),a.historical());
     }
 
     public CorrectiveActionResource correctiveAction(CorrectiveAction c) {
@@ -44,11 +44,15 @@ public class AlertIncidentResourceAssembler {
                 ? new AcknowledgementResource(alert.getAcknowledgedBy(), alert.getAcknowledgedAt(),
                 alert.getAcknowledgementNote())
                 : null;
+        var reasons=new java.util.ArrayList<>(detail.resolutionBlockReasons());
+        if (!administrator) reasons.add("READ_ONLY");
+        if (detail.incident().isResolved()) reasons.add("INCIDENT_RESOLVED");
+        if (detail.correctiveActions().isEmpty()) reasons.add("CORRECTIVE_ACTION_REQUIRED");
         return new IncidentDetailResource(incident(detail.incident()),
                 alert == null ? null : alert(alert, detail.incident()), acknowledgement,
                 detail.correctiveActions().stream().map(this::correctiveAction).toList(), detail.withinSafeRange(),
                 administrator && !detail.incident().isResolved() && detail.withinSafeRange()
-                        && !detail.correctiveActions().isEmpty());
+                        && !detail.correctiveActions().isEmpty(),reasons);
     }
 
     public AlertAcknowledgementResource acknowledgement(Acknowledgement result) {

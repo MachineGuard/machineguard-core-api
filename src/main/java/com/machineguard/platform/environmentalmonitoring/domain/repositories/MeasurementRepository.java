@@ -20,5 +20,7 @@ public interface MeasurementRepository {
     Optional<Measurement> findFirstByOrganizationIdAndMonitoringPointIdAndEnvironmentalVariableOrderByRecordedAtDesc(
             UUID organizationId, UUID monitoringPointId, EnvironmentalVariable environmentalVariable);
     List<Measurement> findLatest(UUID organizationId, UUID zoneId);
+    List<Measurement> findLatestSensorMeasurements(UUID organizationId,UUID zoneId);
+    List<Measurement> findLatestSensorReceipts(UUID organizationId,UUID zoneId);
     MeasurementHistoryPage findHistory(GetMeasurementHistory query);
 }

@@ -30,6 +30,10 @@ public class Measurement {
     @Column(name = "received_at", nullable = false)
     private OffsetDateTime receivedAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable=false,length=20)
+    private MeasurementSource source;
+
     protected Measurement() {}
 
     public static Measurement record(UUID organizationId,
@@ -40,7 +44,14 @@ public class Measurement {
             BigDecimal measuredValue,
             OffsetDateTime recordedAt,
             OffsetDateTime receivedAt) {
+        return record(organizationId,monitoringZoneId,monitoringPointId,sensorNodeId,environmentalVariable,
+                measuredValue,recordedAt,receivedAt,MeasurementSource.MANUAL);
+    }
+    public static Measurement record(UUID organizationId,UUID monitoringZoneId,UUID monitoringPointId,UUID sensorNodeId,
+            EnvironmentalVariable environmentalVariable,BigDecimal measuredValue,OffsetDateTime recordedAt,
+            OffsetDateTime receivedAt,MeasurementSource source) {
         Measurement result = new Measurement();
+        result.source=Objects.requireNonNull(source);
         result.organizationId = Objects.requireNonNull(organizationId);
         result.monitoringZoneId = Objects.requireNonNull(monitoringZoneId);
         result.monitoringPointId = Objects.requireNonNull(monitoringPointId);
@@ -52,6 +63,7 @@ public class Measurement {
         return result;
     }
 
+    public MeasurementSource getSource() { return source; }
     public UUID getId() { return id; }
     public UUID getOrganizationId() { return organizationId; }
     public UUID getMonitoringZoneId() { return monitoringZoneId; }
