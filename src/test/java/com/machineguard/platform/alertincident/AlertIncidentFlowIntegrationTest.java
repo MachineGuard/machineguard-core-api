@@ -38,6 +38,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(properties = "spring.datasource.url=${MACHINEGUARD_TEST_DB_URL:jdbc:h2:mem:alertincidentflow;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE}")
 @AutoConfigureMockMvc
+@org.springframework.test.annotation.DirtiesContext(classMode=org.springframework.test.annotation.DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
 class AlertIncidentFlowIntegrationTest {
     static final Instant NOW = Instant.parse("2026-10-29T12:00:00Z");
     static final UUID ORG = new UUID(0, 801), OTHER = new UUID(0, 802), ADMIN = new UUID(0, 803);

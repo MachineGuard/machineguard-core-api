@@ -78,7 +78,7 @@ class MeasurementTimeApiIntegrationTest {
         credential=call(post("/api/v1/gateways"),Map.of("name","Time gateway","sensorNodeIds",List.of(sensor)),201,admin).get("credential").asText();
         failing.enabled=false;events.clear();
     }
-    String auth(UUID org,Role role){return "Bearer "+tokens.issueAccessToken(ADMIN,org,role,UUID.randomUUID()).value();}
+    String auth(UUID org,Role role){return "Bearer "+com.machineguard.platform.support.SessionFixtures.token(jdbc,tokens,ADMIN,org,role,UUID.randomUUID());}
     JsonNode call(MockHttpServletRequestBuilder request,Object body,int expected,String bearer)throws Exception{
         if(bearer!=null)request.header("Authorization",bearer);
         if(body!=null)request.contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(body));

@@ -31,6 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(properties="spring.datasource.url=${MACHINEGUARD_TEST_DB_URL:jdbc:h2:mem:gatewayiam;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE}")
 @AutoConfigureMockMvc
+@org.springframework.test.annotation.DirtiesContext(classMode=org.springframework.test.annotation.DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
 class GatewayCredentialApiIntegrationTest {
     static final Instant NOW=Instant.parse("2026-10-30T12:00:00Z");
     static final UUID ORG=new UUID(0,901), OTHER=new UUID(0,902), ADMIN=new UUID(0,903);
@@ -101,7 +102,8 @@ class GatewayCredentialApiIntegrationTest {
         for (int ttl:List.of(0,91)) send(post("/api/v1/gateways"),admin,Map.of("name","Invalid TTL","sensorNodeIds",List.of(SENSOR),"credentialTtlDays",ttl),400);
         send(post("/api/v1/gateways"),admin,Map.of("name","Empty","sensorNodeIds",List.of()),400);
         jdbc.update("UPDATE users SET role='VIEWER' WHERE id=?",ADMIN);
-        send(post("/api/v1/gateways"),admin,valid,403);
+        // The stale ADMIN claim is now rejected at the session boundary before authorization.
+        send(post("/api/v1/gateways"),admin,valid,401);
     }
     @Test void rotationInvalidatesTheOldSecretAndRevocationCannotBeUndoneByRotation() throws Exception {
         JsonNode first=register(); String id=first.get("gateway").get("id").asText(),old=first.get("credential").asText();

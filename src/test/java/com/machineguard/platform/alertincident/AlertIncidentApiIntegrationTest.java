@@ -96,7 +96,7 @@ class AlertIncidentApiIntegrationTest {
 
     private MockHttpServletRequestBuilder as(MockHttpServletRequestBuilder request, UUID org, Role role) {
         return request.header("Authorization",
-                "Bearer " + jwtTokens.issueAccessToken(USER, org, role, uuid(888)).value());
+                "Bearer " + com.machineguard.platform.support.SessionFixtures.token(jdbc,jwtTokens,USER, org, role, uuid(888)));
     }
 
     private MockHttpServletRequestBuilder admin(MockHttpServletRequestBuilder request) {

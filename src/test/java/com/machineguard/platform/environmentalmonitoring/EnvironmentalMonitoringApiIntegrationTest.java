@@ -95,7 +95,7 @@ class EnvironmentalMonitoringApiIntegrationTest {
                 new BigDecimal(value),NOW.minusSeconds(60).plusSeconds(index)));
     }
     String auth(UUID org, Role role) {
-        return "Bearer " + tokens.issueAccessToken(UUID.randomUUID(), org, role, UUID.randomUUID()).value();
+        return "Bearer " + com.machineguard.platform.support.SessionFixtures.token(jdbc,tokens,UUID.randomUUID(), org, role, UUID.randomUUID());
     }
     long deviations() { return events.stream(DeviationDetected.class).count(); }
     long restorations() { return events.stream(SafeRangeRestored.class).count(); }

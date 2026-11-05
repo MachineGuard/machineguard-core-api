@@ -43,7 +43,7 @@ class MonitoringConfigurationApiIntegrationTest {
         events.clear();
     }
     String auth(UUID org, Role role) {
-        return "Bearer " + tokens.issueAccessToken(UUID.randomUUID(), org, role, UUID.randomUUID()).value();
+        return "Bearer " + com.machineguard.platform.support.SessionFixtures.token(jdbc,tokens,UUID.randomUUID(), org, role, UUID.randomUUID());
     }
     ResultActions send(MockHttpServletRequestBuilder request, UUID org, Role role, Map<String, Object> body) throws Exception {
         return mvc.perform(request.header("Authorization", auth(org, role)).contentType(MediaType.APPLICATION_JSON)

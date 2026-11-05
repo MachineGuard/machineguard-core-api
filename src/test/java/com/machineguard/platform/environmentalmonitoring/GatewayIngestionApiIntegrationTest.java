@@ -63,7 +63,7 @@ class GatewayIngestionApiIntegrationTest {
         organizations.save(new OrganizationEntity(ORG,"North",SubscriptionPlan.FREE,OrganizationStatus.ACTIVE,null,NOW));
         organizations.save(new OrganizationEntity(OTHER,"South",SubscriptionPlan.FREE,OrganizationStatus.ACTIVE,null,NOW));
         users.save(new UserEntity(ADMIN,ORG,"admin@ingestion.test",passwords.encode("gateway ingestion password"),"Admin",Role.ADMIN,UserStatus.ACTIVE,NOW));
-        admin="Bearer "+tokens.issueAccessToken(ADMIN,ORG,Role.ADMIN,UUID.randomUUID()).value();
+        admin="Bearer "+com.machineguard.platform.support.SessionFixtures.token(jdbc,tokens,ADMIN,ORG,Role.ADMIN,UUID.randomUUID());
         first=device(ORG,"MG-01"); second=device(ORG,"MG-02"); foreign=device(OTHER,"MG-FOREIGN");
         provision(Set.of(first.sensor()));
     }

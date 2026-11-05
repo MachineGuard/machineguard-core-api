@@ -11,12 +11,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import com.machineguard.platform.iam.application.GatewayCredentialService;
+import com.machineguard.platform.iam.application.IamService;
 
 @Configuration
 @EnableMethodSecurity
 public class IamSecurityConfiguration {
     @Bean
-    SecurityFilterChain apiSecurity(HttpSecurity http, JwtTokenService tokens, GatewayCredentialService gateways) throws Exception {
+    SecurityFilterChain apiSecurity(HttpSecurity http, JwtTokenService tokens, GatewayCredentialService gateways,IamService iam) throws Exception {
         return http.csrf(csrf -> csrf.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
@@ -32,6 +33,7 @@ public class IamSecurityConfiguration {
                         (request, response, exception) -> GatewaySecurityResponse.reject(request,response,401,"Authentication required"))
                         .accessDeniedHandler((request,response,exception) -> GatewaySecurityResponse.reject(request,response,403,"Access denied")))
                 .addFilterBefore(new JwtAuthenticationFilter(tokens), UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(new WriteSessionFilter(iam),JwtAuthenticationFilter.class)
                 .addFilterBefore(new GatewayCredentialFilter(gateways), JwtAuthenticationFilter.class)
                 .build();
     }
