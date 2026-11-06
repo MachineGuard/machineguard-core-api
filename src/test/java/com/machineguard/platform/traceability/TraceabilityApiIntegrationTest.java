@@ -1,19 +1,22 @@
 package com.machineguard.platform.traceability;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 import com.machineguard.platform.traceability.application.integration.InboundEvents.DeviationDetected;
 import com.machineguard.platform.traceability.application.integration.InboundEvents.IncidentResolved;
 import com.machineguard.platform.traceability.application.integration.InboundEvents.SafeRangeRestored;
 import com.machineguard.platform.traceability.domain.model.EnvironmentalVariable;
 import com.machineguard.platform.iam.domain.model.Role;
 import com.machineguard.platform.iam.infrastructure.security.JwtTokenService;
+import com.machineguard.platform.traceability.domain.model.ReportPeriod;
 import com.machineguard.platform.traceability.domain.model.RetentionPeriod;
+import com.machineguard.platform.traceability.domain.model.TraceabilityReport;
+import com.machineguard.platform.traceability.domain.services.TraceabilityReportAssemblyService;
 import com.machineguard.platform.traceability.domain.services.RetentionPolicyService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.ApplicationEventPublisher;
@@ -29,6 +32,7 @@ import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -68,11 +72,12 @@ class TraceabilityApiIntegrationTest {
     }
 
     @Autowired MockMvc mvc;
-    @Autowired ObjectMapper json;
+    @Autowired JsonMapper json;
     @Autowired JdbcTemplate jdbc;
     @Autowired ApplicationEventPublisher events;
     @Autowired RetentionPolicyService retention;
     @Autowired JwtTokenService jwtTokens;
+    @Autowired TraceabilityReportAssemblyService reportAssembly;
 
     @BeforeEach
     void cleanDatabase() {
@@ -85,6 +90,22 @@ class TraceabilityApiIntegrationTest {
         jdbc.execute("DELETE FROM traceability_reports");
         jdbc.execute("DELETE FROM non_conformities");
         jdbc.execute("DELETE FROM excursions");
+    }
+
+    @Test
+    void newSealedSnapshotsKeepBoot3ContentBytesAndChecksum() {
+        Instant generatedAt = Instant.parse("2026-01-01T01:00:00Z");
+        var report = TraceabilityReport.generate(uuid(10), uuid(20),
+                new ReportPeriod(Instant.parse("2026-01-01T00:00:00Z"), generatedAt), uuid(30), generatedAt);
+        var measurement = new com.machineguard.platform.traceability.application.ports.MeasurementHistoryProvider.MeasurementPoint(
+                uuid(40), EnvironmentalVariable.HUMIDITY, 47.25, generatedAt);
+
+        reportAssembly.assembleAndSeal(report, List.of(), List.of(), List.of(measurement), 1);
+
+        assertEquals("{\"excursions\":[],\"correctiveActions\":[],\"ongoingExcursionsExcluded\":1,\"measurementHistory\":[{\"monitoringPointId\":\"00000000-0000-0000-0000-000000000028\",\"environmentalVariable\":\"HUMIDITY\",\"value\":47.25,\"recordedAt\":\"2026-01-01T01:00:00Z\"}]}",
+                report.getContent());
+        assertEquals("0fc1a59783dd7c7514da5902a76d9f436b4e58eaccdb07a7b7156efe1720db88", report.getChecksum());
+        assertTrue(report.verifyIntegrity());
     }
 
     private MockHttpServletRequestBuilder withIdentity(MockHttpServletRequestBuilder request, UUID org) {

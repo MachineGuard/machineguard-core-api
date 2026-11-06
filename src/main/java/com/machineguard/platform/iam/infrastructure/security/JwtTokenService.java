@@ -1,7 +1,7 @@
 package com.machineguard.platform.iam.infrastructure.security;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 import com.machineguard.platform.iam.application.port.TokenProvider;
 import com.machineguard.platform.iam.domain.model.Role;
 import jakarta.annotation.PostConstruct;
@@ -24,14 +24,14 @@ import java.util.UUID;
 @Service
 public class JwtTokenService implements TokenProvider {
     private static final String HMAC_ALGORITHM = "HmacSHA256";
-    private final ObjectMapper objectMapper;
+    private final JsonMapper objectMapper;
     private final Clock clock;
     private final String issuer;
     private final long accessTokenTtlSeconds;
     private final byte[] secret;
     private final SecureRandom secureRandom = new SecureRandom();
 
-    public JwtTokenService(ObjectMapper objectMapper, Clock clock,
+    public JwtTokenService(JsonMapper objectMapper, Clock clock,
                            @Value("${machineguard.iam.jwt-secret:}") String secret,
                            @Value("${machineguard.iam.issuer:machineguard-iam}") String issuer,
                            @Value("${machineguard.iam.access-token-ttl-seconds:900}") long accessTokenTtlSeconds) {

@@ -1,6 +1,6 @@
 package com.machineguard.platform.support;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import org.apache.commons.lang3.ClassUtils;
 import org.apache.logging.log4j.message.MapMessage;
 import org.junit.jupiter.api.Test;
@@ -12,8 +12,9 @@ import static org.junit.jupiter.api.Assertions.*;
 /** Library-level advisory regressions, without claiming an exposed application sink. */
 class DependencySafetyTest {
     @Test void excessiveArrayDimensionsFailWithoutRecursiveExhaustion() {
-        assertThrows(IllegalArgumentException.class,
+        Exception failure = assertThrows(Exception.class,
                 () -> ClassUtils.getClass("java.lang.String" + "[]".repeat(10_000)));
+        assertTrue(failure instanceof IllegalArgumentException || failure instanceof ClassNotFoundException);
         assertEquals(String[].class, assertDoesNotThrow(() -> ClassUtils.getClass("java.lang.String[]")));
     }
 
@@ -22,14 +23,14 @@ class DependencySafetyTest {
     void mapMessageNonFiniteValuesRemainParseableJson(double value) {
         var message = new MapMessage<>().with("reading", value).with("source", "synthetic");
         var json = message.getFormattedMessage(new String[]{"JSON"});
-        var tree = assertDoesNotThrow(() -> new ObjectMapper().readTree(json));
+        var tree = assertDoesNotThrow(() -> new JsonMapper().readTree(json));
         assertEquals("synthetic", tree.get("source").asText());
         assertTrue(tree.has("reading"));
     }
 
     @Test void mapMessageFiniteValuesKeepTheirMeaning() throws Exception {
         var message = new MapMessage<>().with("reading", 42.5).with("source", "synthetic");
-        var tree = new ObjectMapper().readTree(message.getFormattedMessage(new String[]{"JSON"}));
+        var tree = new JsonMapper().readTree(message.getFormattedMessage(new String[]{"JSON"}));
         assertEquals(42.5, tree.get("reading").asDouble());
         assertEquals("synthetic", tree.get("source").asText());
     }

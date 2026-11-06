@@ -1,9 +1,9 @@
 package com.machineguard.platform.iam;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -18,7 +18,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @org.springframework.test.annotation.DirtiesContext(classMode=org.springframework.test.annotation.DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
 class WriteSessionApiIntegrationTest {
     @Autowired MockMvc mvc;
-    @Autowired ObjectMapper json;
+    @Autowired JsonMapper json;
     @Autowired JdbcTemplate jdbc;
     @Autowired org.springframework.security.crypto.password.PasswordEncoder passwords;
     @Autowired com.machineguard.platform.iam.infrastructure.security.JwtTokenService tokens;
@@ -54,8 +54,8 @@ class WriteSessionApiIntegrationTest {
             case "missing-sid-claim", "expired-jwt" -> {
                 String[] parts=access.split("\\.");
                 var claims=json.readTree(Base64.getUrlDecoder().decode(parts[1]));
-                if(condition.equals("missing-sid-claim"))((com.fasterxml.jackson.databind.node.ObjectNode)claims).remove("sid");
-                else ((com.fasterxml.jackson.databind.node.ObjectNode)claims).put("exp",java.time.Instant.now().minusSeconds(1).getEpochSecond());
+                if(condition.equals("missing-sid-claim"))((tools.jackson.databind.node.ObjectNode)claims).remove("sid");
+                else ((tools.jackson.databind.node.ObjectNode)claims).put("exp",java.time.Instant.now().minusSeconds(1).getEpochSecond());
                 String signed=parts[0]+"."+Base64.getUrlEncoder().withoutPadding().encodeToString(json.writeValueAsBytes(claims));
                 var mac=javax.crypto.Mac.getInstance("HmacSHA256");
                 mac.init(new javax.crypto.spec.SecretKeySpec(signingKey.getBytes(java.nio.charset.StandardCharsets.UTF_8),"HmacSHA256"));

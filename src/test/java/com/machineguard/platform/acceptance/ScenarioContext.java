@@ -1,7 +1,7 @@
 package com.machineguard.platform.acceptance;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 import org.springframework.context.annotation.Scope;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -17,7 +17,7 @@ import java.util.UUID;
 @Scope("cucumber-glue")
 public class ScenarioContext {
 
-    private final ObjectMapper json;
+    private final JsonMapper json;
 
     final Map<String, UUID> organizations = new HashMap<>();
     final Map<String, UUID> users = new HashMap<>();
@@ -34,7 +34,7 @@ public class ScenarioContext {
     UUID nonConformityId;
     UUID reportId;
 
-    public ScenarioContext(ObjectMapper json) {
+    public ScenarioContext(JsonMapper json) {
         this.json = json;
     }
 

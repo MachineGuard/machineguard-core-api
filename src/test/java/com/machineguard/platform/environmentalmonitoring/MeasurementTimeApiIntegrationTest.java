@@ -1,7 +1,7 @@
 package com.machineguard.platform.environmentalmonitoring;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 import com.machineguard.platform.iam.domain.model.*;
 import com.machineguard.platform.iam.infrastructure.persistence.OrganizationEntity;
 import com.machineguard.platform.iam.infrastructure.persistence.UserEntity;
@@ -13,7 +13,7 @@ import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.*;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
@@ -50,7 +50,7 @@ class MeasurementTimeApiIntegrationTest {
         }
     }
     @Autowired MockMvc mvc;
-    @Autowired ObjectMapper json;
+    @Autowired JsonMapper json;
     @Autowired JdbcTemplate jdbc;
     @Autowired JwtTokenService tokens;
     @Autowired OrganizationJpaRepository organizations;

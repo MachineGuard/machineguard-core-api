@@ -3,7 +3,7 @@ package com.machineguard.platform.iam;
 import com.machineguard.platform.iam.infrastructure.security.WriteSessionPolicy;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.*;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;

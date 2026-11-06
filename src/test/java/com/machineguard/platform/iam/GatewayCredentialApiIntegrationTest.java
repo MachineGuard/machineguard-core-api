@@ -1,7 +1,7 @@
 package com.machineguard.platform.iam;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 import com.machineguard.platform.iam.application.GatewayAuthenticationException;
 import com.machineguard.platform.iam.application.GatewayCredentialService;
 import com.machineguard.platform.iam.domain.model.*;
@@ -12,7 +12,7 @@ import com.machineguard.platform.iam.infrastructure.persistence.repository.UserJ
 import com.machineguard.platform.iam.infrastructure.security.JwtTokenService;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -41,7 +41,7 @@ class GatewayCredentialApiIntegrationTest {
         @Bean @Primary Clock gatewayClock() { return Clock.fixed(NOW,ZoneOffset.UTC); }
     }
     @Autowired MockMvc mvc;
-    @Autowired ObjectMapper json;
+    @Autowired JsonMapper json;
     @Autowired JdbcTemplate jdbc;
     @Autowired OrganizationJpaRepository organizations;
     @Autowired UserJpaRepository users;

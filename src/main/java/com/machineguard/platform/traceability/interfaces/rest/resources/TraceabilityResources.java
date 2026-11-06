@@ -1,7 +1,7 @@
 package com.machineguard.platform.traceability.interfaces.rest.resources;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.machineguard.platform.traceability.domain.model.Disposition;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

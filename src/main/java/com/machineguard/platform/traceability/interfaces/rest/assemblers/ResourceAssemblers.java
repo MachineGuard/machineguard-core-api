@@ -1,8 +1,8 @@
 package com.machineguard.platform.traceability.interfaces.rest.assemblers;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 import com.machineguard.platform.traceability.application.ports.MeasurementHistoryProvider.MeasurementPoint;
 import com.machineguard.platform.traceability.domain.model.Excursion;
 import com.machineguard.platform.traceability.domain.model.NonConformity;
@@ -25,9 +25,9 @@ import java.util.UUID;
 public class ResourceAssemblers {
 
     private final Clock clock;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper objectMapper;
 
-    public ResourceAssemblers(Clock clock, ObjectMapper objectMapper) {
+    public ResourceAssemblers(Clock clock, JsonMapper objectMapper) {
         this.clock = clock;
         this.objectMapper = objectMapper;
     }
@@ -57,7 +57,7 @@ public class ResourceAssemblers {
     public TraceabilityReportResource reportWithContent(TraceabilityReport r) {
         try {
             return report(r, r.getContent() == null ? null : objectMapper.readTree(r.getContent()));
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new IllegalStateException("El contenido del reporte " + r.getId() + " no es JSON valido", e);
         }
     }
