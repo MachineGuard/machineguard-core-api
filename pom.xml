@@ -21,6 +21,8 @@
         <java.version>21</java.version>
         <!-- H2 2.4.240 breaks the existing PostgreSQL-mode check-constraint fixtures after context reloads. -->
         <h2.version>2.3.232</h2.version>
+        <!-- Preserve the patched Commons Lang line from the preceding Core release. -->
+        <commons-lang3.version>3.21.0</commons-lang3.version>
         <machineguard.test.reports.directory>${project.build.directory}/surefire-reports</machineguard.test.reports.directory>
         <springdoc.version>3.2.0</springdoc.version>
         <cucumber.version>8.0.0</cucumber.version>

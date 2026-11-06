@@ -12,9 +12,8 @@ import static org.junit.jupiter.api.Assertions.*;
 /** Library-level advisory regressions, without claiming an exposed application sink. */
 class DependencySafetyTest {
     @Test void excessiveArrayDimensionsFailWithoutRecursiveExhaustion() {
-        Exception failure = assertThrows(Exception.class,
+        assertThrows(IllegalArgumentException.class,
                 () -> ClassUtils.getClass("java.lang.String" + "[]".repeat(10_000)));
-        assertTrue(failure instanceof IllegalArgumentException || failure instanceof ClassNotFoundException);
         assertEquals(String[].class, assertDoesNotThrow(() -> ClassUtils.getClass("java.lang.String[]")));
     }
 
