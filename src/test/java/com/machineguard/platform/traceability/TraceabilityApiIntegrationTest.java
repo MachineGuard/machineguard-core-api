@@ -312,7 +312,7 @@ class TraceabilityApiIntegrationTest {
         String reportId = body(mvc.perform(withIdentity(post(BASE + "/reports"))
                 .contentType(MediaType.APPLICATION_JSON).content(request)).andReturn()).get("id").asText();
 
-        jdbc.update("UPDATE traceability_reports SET measurement_count = 999 WHERE id = ?", reportId);
+        jdbc.update("UPDATE traceability_reports SET measurement_count = 999 WHERE id = CAST(? AS UUID)", reportId);
         mvc.perform(withIdentity(get(BASE + "/reports/" + reportId))).andExpect(jsonPath("$.integrityVerified").value(false));
     }
 
