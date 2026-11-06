@@ -61,14 +61,38 @@ function Start-Background([string]$File, [string[]]$Arguments, [string]$Director
     return Start-Process -FilePath $File -ArgumentList $quoted -WorkingDirectory $Directory -WindowStyle Hidden -PassThru `
         -RedirectStandardOutput (Join-Path $runtime "$Name.stdout.log") -RedirectStandardError (Join-Path $runtime "$Name.stderr.log")
 }
-function Wait-Http([string]$Url, $Record) {
+function Wait-Http([string]$Url, $Record, [int]$ExpectedStatus = 200) {
     $deadline = [DateTime]::UtcNow.AddSeconds(120)
     do {
         if (-not (Is-OwnedProcess $Record)) { throw "Testing process exited. Inspect logs in $runtime" }
-        try { $response = Invoke-WebRequest $Url -TimeoutSec 3; if ($response.StatusCode -eq 200) { return } } catch { }
+        try { $response = Invoke-WebRequest $Url -TimeoutSec 3 -SkipHttpErrorCheck; if ($response.StatusCode -eq $ExpectedStatus) { return } } catch { }
         Start-Sleep -Seconds 1
     } while ([DateTime]::UtcNow -lt $deadline)
-    throw "Testing service did not become ready: $Url. Inspect logs in $runtime"
+    throw "Testing service did not return HTTP $ExpectedStatus at $Url within 120 seconds. Inspect logs in $runtime"
+}
+
+
+function Wait-BootstrapLogin([string]$Url, $Record, $AdminSecret) {
+    $deadline = [DateTime]::UtcNow.AddSeconds(120)
+    do {
+        if (-not (Is-OwnedProcess $Record)) { throw "Testing Core exited during bootstrap. Inspect logs in $runtime" }
+        try {
+            $result = Invoke-RestMethod $Url -Method Post -ContentType application/json -TimeoutSec 3 `
+                -SkipHttpErrorCheck -StatusCodeVariable loginStatus `
+                -Body (@{email='admin@testing.machineguard.invalid'; password=(Reveal $AdminSecret)} | ConvertTo-Json)
+        } catch { throw "Testing bootstrap login request failed. Inspect logs in $runtime" }
+        if ($loginStatus -eq 200) {
+            if (-not $result.accessToken -or -not $result.organization.id -or $result.user.role -ne 'ADMIN') {
+                throw 'Testing bootstrap login returned an unexpected identity.'
+            }
+            return $result
+        }
+        if ($loginStatus -notin @(401, 429)) { throw "Testing bootstrap login failed (HTTP $loginStatus). Inspect logs in $runtime" }
+        # At most four attempts per minute, leaving room for the viewer login.
+        $remaining = ($deadline - [DateTime]::UtcNow).TotalSeconds
+        if ($remaining -gt 0) { Start-Sleep -Seconds ([Math]::Min(15, [Math]::Ceiling($remaining))) }
+    } while ([DateTime]::UtcNow -lt $deadline)
+    throw "Testing bootstrap authentication did not become ready within 120 seconds (last HTTP $loginStatus). Inspect logs in $runtime"
 }
 
 $state = Read-State
@@ -191,8 +215,10 @@ try {
     $state.api = Record-Process (Start-Background $java @('-jar', $jar, "--server.port=$ApiPort", '--server.address=127.0.0.1') $coreRoot 'core')
     Save-State $state
     foreach ($entry in $savedEnvironment.GetEnumerator()) { [Environment]::SetEnvironmentVariable($entry.Key, $entry.Value, 'Process') }
-    Wait-Http "http://127.0.0.1:$ApiPort/v3/api-docs" $state.api
-    $login = Invoke-RestMethod "http://127.0.0.1:$ApiPort/api/v1/auth/login" -Method Post -ContentType application/json -Body (@{email='admin@testing.machineguard.invalid'; password=(Reveal $secrets.admin)} | ConvertTo-Json)
+    # A protected API response indicates that the HTTP/security stack is available;
+    # the subsequent real login verifies bootstrap and authentication before readiness.
+    Wait-Http "http://127.0.0.1:$ApiPort/api/v1/organizations" $state.api 401
+    $login = Wait-BootstrapLogin "http://127.0.0.1:$ApiPort/api/v1/auth/login" $state.api $secrets.admin
     $headers = @{Authorization="Bearer $($login.accessToken)"}
     $usersUrl = "http://127.0.0.1:$ApiPort/api/v1/organizations/$($login.organization.id)/users"
     Invoke-RestMethod $usersUrl -Headers $headers -Method Post -ContentType application/json -SkipHttpErrorCheck -StatusCodeVariable viewerStatus -Body (@{email='viewer@testing.machineguard.invalid'; password=(Reveal $secrets.viewer); fullName='Testing viewer'; role='VIEWER'} | ConvertTo-Json) | Out-Null
