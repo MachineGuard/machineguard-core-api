@@ -10,7 +10,6 @@ import com.machineguard.platform.environmentalmonitoring.domain.repositories.Mon
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
-import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
@@ -23,10 +22,9 @@ public class IngestGatewayReadingsCommandService {
     private final MonitoringZoneRepository zones;
     private final MeasurementRepository measurements;
     private final RegisterMeasurementCommandService register;
-    private final Clock clock;
     public IngestGatewayReadingsCommandService(GatewayDeviceResolver devices,MonitoringZoneRepository zones,
-            MeasurementRepository measurements,RegisterMeasurementCommandService register,Clock clock) {
-        this.devices=devices; this.zones=zones; this.measurements=measurements; this.register=register; this.clock=clock;
+            MeasurementRepository measurements,RegisterMeasurementCommandService register) {
+        this.devices=devices; this.zones=zones; this.measurements=measurements; this.register=register;
     }
     public record Reading(String deviceCode,BigDecimal temperature,BigDecimal humidity,OffsetDateTime capturedAt) { }
     public record Command(UUID organizationId,Set<UUID> authorizedSensorNodeIds,List<Reading> readings) {
@@ -41,8 +39,6 @@ public class IngestGatewayReadingsCommandService {
             throw new IllegalArgumentException("A batch requires 1 to 500 readings");
         List<Resolved> resolved=new ArrayList<>();
         for (Reading reading:command.readings()) {
-            if (reading.capturedAt().toInstant().isAfter(clock.instant().plusSeconds(300)))
-                throw new IllegalArgumentException("capturedAt cannot be more than five minutes in the future");
             var device=devices.resolve(command.organizationId(),reading.deviceCode())
                     .orElseThrow(()->new EnvironmentalMonitoringNotFoundException("Sensor node not authorized"));
             if (!command.authorizedSensorNodeIds().contains(device.sensorNodeId()))
@@ -66,10 +62,10 @@ public class IngestGatewayReadingsCommandService {
                 if (existing.isPresent()) {
                     var saved=existing.get();
                     if (saved.getMeasuredValue().compareTo(value)!=0 || !Objects.equals(saved.getSensorNodeId(),device.sensorNodeId()))
-                        throw new EnvironmentalMonitoringRuleException("A different reading already exists at capturedAt");
+                        throw new EnvironmentalMonitoringRuleException(EnvironmentalMonitoringRuleException.Reason.READING_CONFLICT,"A different reading already exists at capturedAt");
                     reused++;
                 } else {
-                    register.handle(new RegisterMeasurementCommand(command.organizationId(),device.monitoringZoneId(),
+                    register.handleSensor(new RegisterMeasurementCommand(command.organizationId(),device.monitoringZoneId(),
                             device.monitoringPointId(),device.sensorNodeId(),variable,value,at));
                     created++;
                 }

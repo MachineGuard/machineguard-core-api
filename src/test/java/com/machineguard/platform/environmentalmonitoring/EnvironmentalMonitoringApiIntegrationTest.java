@@ -81,11 +81,21 @@ class EnvironmentalMonitoringApiIntegrationTest {
         return record(point, node.getId(), EnvironmentalVariable.TEMPERATURE, value, minute);
     }
     Measurement record(MonitoringPoint target, UUID sensor, EnvironmentalVariable variable, String value, int minute) {
-        return commands.handle(new RegisterMeasurementCommand(ORG, zone.getId(), target.getId(), sensor, variable,
+        return commands.handleSensor(new RegisterMeasurementCommand(ORG, zone.getId(), target.getId(), sensor, variable,
                 new BigDecimal(value), NOW.minusHours(1).plusMinutes(minute)));
     }
+    // Recovery scenarios need physical identities and capture times inside their sensor window.
+    Measurement recordFresh(String value,int index) { return recordFresh(point,node.getId(),EnvironmentalVariable.TEMPERATURE,value,index); }
+    Measurement recordFresh(MonitoringPoint target,UUID sensor,EnvironmentalVariable variable,String value,int index) {
+        if (sensor==null) {
+            var known=nodes.findByMonitoringPointIdIn(List.of(target.getId()));
+            sensor=known.isEmpty()?nodes.save(SensorNode.register(target.getId(),"fresh-"+target.getId(),60,NOW)).getId():known.getFirst().getId();
+        }
+        return commands.handleSensor(new RegisterMeasurementCommand(ORG,zone.getId(),target.getId(),sensor,variable,
+                new BigDecimal(value),NOW.minusSeconds(60).plusSeconds(index)));
+    }
     String auth(UUID org, Role role) {
-        return "Bearer " + tokens.issueAccessToken(UUID.randomUUID(), org, role, UUID.randomUUID()).value();
+        return "Bearer " + com.machineguard.platform.support.SessionFixtures.token(jdbc,tokens,UUID.randomUUID(), org, role, UUID.randomUUID());
     }
     long deviations() { return events.stream(DeviationDetected.class).count(); }
     long restorations() { return events.stream(SafeRangeRestored.class).count(); }
@@ -113,7 +123,7 @@ class EnvironmentalMonitoringApiIntegrationTest {
         assertEquals(11.2, jdbc.queryForObject("SELECT peak_value FROM excursions", Double.class));
     }
     @Test void restorationOnlyOnTransitionClosesExcursion() {
-        record("11.2", 0); record("10.4", 1); record("7.8", 2); record("7", 3);
+        recordFresh("11.2", 0); recordFresh("10.4", 1); recordFresh("7.8", 2); recordFresh("7", 3);
         assertEquals(1, restorations());
         assertNotNull(jdbc.queryForObject("SELECT ended_at FROM excursions", Object.class));
     }
@@ -121,10 +131,10 @@ class EnvironmentalMonitoringApiIntegrationTest {
         record("2", 0); record("8", 1); assertEquals(0, deviations()); assertEquals(0, restorations());
     }
     @Test void independentVariablesDoNotRestoreEachOther() {
-        record("11", 0); record(point, node.getId(), EnvironmentalVariable.HUMIDITY, "50", 0);
+        recordFresh("11", 0); recordFresh(point, node.getId(), EnvironmentalVariable.HUMIDITY, "50", 0);
         assertEquals(1, deviations()); assertEquals(0, restorations());
-        record(point, node.getId(), EnvironmentalVariable.HUMIDITY, "70", 1);
-        record("5", 2); assertEquals(1, restorations());
+        recordFresh(point, node.getId(), EnvironmentalVariable.HUMIDITY, "70", 1);
+        recordFresh("5", 2); assertEquals(1, restorations());
         assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM excursions WHERE ended_at IS NULL", Integer.class));
     }
     @Test void missingThresholdFailsWithoutPersisting() {
@@ -134,9 +144,9 @@ class EnvironmentalMonitoringApiIntegrationTest {
     }
     @Test void otherPointDeviationPreventsPrematureRestoration() {
         MonitoringPoint second = points.save(MonitoringPoint.register(zone.getId(), "B", null, NOW));
-        record("11", 0); record(second, null, EnvironmentalVariable.TEMPERATURE, "10", 1);
-        record("5", 2); assertEquals(0, restorations());
-        record(second, null, EnvironmentalVariable.TEMPERATURE, "5", 3); assertEquals(1, restorations());
+        recordFresh("11", 0); recordFresh(second, null, EnvironmentalVariable.TEMPERATURE, "10", 1);
+        recordFresh("5", 2); assertEquals(0, restorations());
+        recordFresh(second, null, EnvironmentalVariable.TEMPERATURE, "5", 3); assertEquals(1, restorations());
     }
     @Test void backfillCannotRewindLifecycleOrLatest() {
         record("11", 3); record("5", 1);
@@ -174,7 +184,7 @@ class EnvironmentalMonitoringApiIntegrationTest {
         mvc.perform(get(BASE + "/measurements/latest").header("Authorization", auth(ORG, Role.VIEWER)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2));
         mvc.perform(get(BASE + "/zones/" + zone.getId()).header("Authorization", auth(ORG, Role.VIEWER)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.environmentalCondition").value("NORMAL"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.environmentalCondition").value("STALE"))
                 .andExpect(jsonPath("$.sensorsOnline").value(1)).andExpect(jsonPath("$.thresholds.length()").value(2));
     }
     @Test void historyIsInclusiveFilteredAndPaginated() throws Exception {
@@ -217,17 +227,17 @@ class EnvironmentalMonitoringApiIntegrationTest {
         assertEquals(SensorNodeStatus.OFFLINE, nodes.findByIdAndMonitoringPointId(node.getId(), point.getId()).orElseThrow().getStatus());
     }
     @Test void lowerDeviationUsesMinimumInTraceabilityContract() {
-        record("1", 0);
+        recordFresh("1", 0);
         assertEquals(2.0, jdbc.queryForObject("SELECT threshold_value FROM excursions", Double.class));
-        record("2", 1); assertEquals(1, restorations());
+        recordFresh("2", 1); assertEquals(1, restorations());
     }
     @Test void restorationAcrossPointsUsesLatestZoneTime() {
         var second = points.save(MonitoringPoint.register(zone.getId(), "B", null, NOW));
-        record("11", 10); record(second, null, EnvironmentalVariable.TEMPERATURE, "10", 1);
-        record("5", 12); record(second, null, EnvironmentalVariable.TEMPERATURE, "5", 2);
+        recordFresh("11", 10); recordFresh(second, null, EnvironmentalVariable.TEMPERATURE, "10", 1);
+        recordFresh("5", 12); recordFresh(second, null, EnvironmentalVariable.TEMPERATURE, "5", 2);
         var event = events.stream(SafeRangeRestored.class).findFirst().orElseThrow();
-        assertEquals(NOW.minusHours(1).plusMinutes(2), event.recordedAt());
-        assertEquals(NOW.minusHours(1).plusMinutes(12), event.restoredAt());
+        assertEquals(NOW.minusSeconds(60).plusSeconds(2), event.recordedAt());
+        assertEquals(NOW.minusSeconds(60).plusSeconds(12), event.restoredAt());
         assertNotNull(jdbc.queryForObject("SELECT ended_at FROM excursions", Object.class));
     }
     @Test void inactiveZonePointOrNodeCannotReceiveMeasurements() {
@@ -261,7 +271,7 @@ class EnvironmentalMonitoringApiIntegrationTest {
     }
 
     @Test void migratedMeasurementSchemaMatchesNumericNullableAndTimestampContract() {
-        assertEquals(9, jdbc.queryForObject("SELECT count(*) FROM information_schema.columns WHERE table_name='measurements'", Integer.class));
+        assertEquals(10, jdbc.queryForObject("SELECT count(*) FROM information_schema.columns WHERE table_name='measurements'", Integer.class));
         assertEquals(6, jdbc.queryForObject("SELECT numeric_precision FROM information_schema.columns WHERE table_name='measurements' AND column_name='measured_value'", Integer.class));
         assertEquals(2, jdbc.queryForObject("SELECT numeric_scale FROM information_schema.columns WHERE table_name='measurements' AND column_name='measured_value'", Integer.class));
         assertEquals("YES", jdbc.queryForObject("SELECT is_nullable FROM information_schema.columns WHERE table_name='measurements' AND column_name='sensor_node_id'", String.class));

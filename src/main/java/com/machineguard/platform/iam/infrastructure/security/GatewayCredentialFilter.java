@@ -19,14 +19,14 @@ public class GatewayCredentialFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         String credential=request.getHeader("X-Device-Credential");
         if (credential!=null) {
-            if (request.getHeader("Authorization")!=null) { response.sendError(401,"Use one credential type per request"); return; }
+            if (request.getHeader("Authorization")!=null) { GatewaySecurityResponse.reject(request,response,401,"Use one credential type per request"); return; }
             try {
                 var identity=gateways.authenticate(credential);
                 var principal=new GatewayPrincipal(identity.gatewayId(),identity.organizationId(),identity.sensorNodeIds());
                 SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(principal,null,
                         List.of(new SimpleGrantedAuthority("GATEWAY_INGEST"))));
             } catch (GatewayAuthenticationException e) {
-                SecurityContextHolder.clearContext(); response.sendError(401,"Invalid or expired gateway credential"); return;
+                SecurityContextHolder.clearContext(); GatewaySecurityResponse.reject(request,response,401,"Invalid or expired gateway credential"); return;
             }
         }
         chain.doFilter(request,response);

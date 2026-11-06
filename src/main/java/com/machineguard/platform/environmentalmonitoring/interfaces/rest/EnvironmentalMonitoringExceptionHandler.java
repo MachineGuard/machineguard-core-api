@@ -8,6 +8,10 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 @RestControllerAdvice(basePackageClasses = EnvironmentalMonitoringController.class)
 public class EnvironmentalMonitoringExceptionHandler {
+    @ExceptionHandler(com.machineguard.platform.environmentalmonitoring.application.MeasurementTimePolicy.InvalidCaptureTimeException.class)
+    public ProblemDetail captureTime(IllegalArgumentException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
+    }
     @ExceptionHandler(EnvironmentalMonitoringNotFoundException.class)
     public ProblemDetail notFound(EnvironmentalMonitoringNotFoundException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());

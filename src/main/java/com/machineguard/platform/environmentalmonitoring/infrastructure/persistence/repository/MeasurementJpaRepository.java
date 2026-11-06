@@ -19,4 +19,22 @@ public interface MeasurementJpaRepository extends JpaRepository<Measurement, UUI
             order by m.monitoringPointId, m.environmentalVariable
             """)
     List<Measurement> findLatest(UUID organizationId, UUID zoneId);
+    @Query("""
+            select m from Measurement m where m.organizationId=:organizationId and m.monitoringZoneId=:zoneId
+            and m.source=com.machineguard.platform.environmentalmonitoring.domain.model.MeasurementSource.SENSOR
+            and not exists (select n.id from Measurement n where n.organizationId=m.organizationId
+                and n.monitoringZoneId=m.monitoringZoneId
+                and n.source=com.machineguard.platform.environmentalmonitoring.domain.model.MeasurementSource.SENSOR
+                and n.sensorNodeId=m.sensorNodeId and n.environmentalVariable=m.environmentalVariable and n.recordedAt>m.recordedAt)
+            """)
+    List<Measurement> findLatestSensorMeasurements(UUID organizationId,UUID zoneId);
+    @Query("""
+            select m from Measurement m where m.organizationId=:organizationId and m.monitoringZoneId=:zoneId
+            and m.source=com.machineguard.platform.environmentalmonitoring.domain.model.MeasurementSource.SENSOR
+            and not exists (select n.id from Measurement n where n.organizationId=m.organizationId
+                and n.monitoringZoneId=m.monitoringZoneId
+                and n.source=com.machineguard.platform.environmentalmonitoring.domain.model.MeasurementSource.SENSOR
+                and n.sensorNodeId=m.sensorNodeId and n.receivedAt>m.receivedAt)
+            """)
+    List<Measurement> findLatestSensorReceipts(UUID organizationId,UUID zoneId);
 }

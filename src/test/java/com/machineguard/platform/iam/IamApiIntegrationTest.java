@@ -42,6 +42,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@org.springframework.test.annotation.DirtiesContext(classMode=org.springframework.test.annotation.DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
 class IamApiIntegrationTest {
     private static final UUID ORG = UUID.fromString("11111111-1111-4111-8111-111111111111");
     private static final UUID OTHER_ORG = UUID.fromString("22222222-2222-4222-8222-222222222222");
@@ -176,8 +177,8 @@ class IamApiIntegrationTest {
         UUID secondAdmin = UUID.fromString("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee");
         users.save(new UserEntity(secondAdmin, ORG, "second-admin@example.test", passwords.encode(PASSWORD),
                 "Second Admin", Role.ADMIN, UserStatus.ACTIVE, Instant.now()));
-        String firstToken = tokens.issueAccessToken(ADMIN, ORG, Role.ADMIN, UUID.randomUUID()).value();
-        String secondToken = tokens.issueAccessToken(secondAdmin, ORG, Role.ADMIN, UUID.randomUUID()).value();
+        String firstToken = com.machineguard.platform.support.SessionFixtures.token(jdbc,tokens,ADMIN, ORG, Role.ADMIN, UUID.randomUUID());
+        String secondToken = com.machineguard.platform.support.SessionFixtures.token(jdbc,tokens,secondAdmin, ORG, Role.ADMIN, UUID.randomUUID());
         CountDownLatch ready = new CountDownLatch(2);
         CountDownLatch start = new CountDownLatch(1);
         var executor = Executors.newFixedThreadPool(2);

@@ -53,8 +53,10 @@ public class EnvironmentalMonitoringQueryService {
         var zonePoints = points.findByMonitoringZoneIdOrderByNameAsc(zone.getId());
         var zoneNodes = zonePoints.isEmpty() ? List.<SensorNode>of() : nodes.findByMonitoringPointIdIn(zonePoints.stream().map(MonitoringPoint::getId).toList());
         return new ZoneSnapshot(zone, zonePoints, zoneNodes, thresholds.findByMonitoringZoneId(zone.getId()),
-                measurements.findLatest(zone.getOrganizationId(), zone.getId()));
+                measurements.findLatest(zone.getOrganizationId(), zone.getId()),
+                measurements.findLatestSensorMeasurements(zone.getOrganizationId(),zone.getId()),
+                measurements.findLatestSensorReceipts(zone.getOrganizationId(),zone.getId()));
     }
     public record ZoneSnapshot(MonitoringZone zone, List<MonitoringPoint> points, List<SensorNode> nodes,
-            List<Threshold> thresholds, List<Measurement> latestMeasurements) {}
+            List<Threshold> thresholds, List<Measurement> latestMeasurements,List<Measurement> physicalMeasurements,List<Measurement> physicalReceipts) {}
 }

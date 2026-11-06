@@ -38,6 +38,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(properties = "spring.datasource.url=${MACHINEGUARD_TEST_DB_URL:jdbc:h2:mem:alertincidentflow;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE}")
 @AutoConfigureMockMvc
+@org.springframework.test.annotation.DirtiesContext(classMode=org.springframework.test.annotation.DirtiesContext.ClassMode.BEFORE_EACH_TEST_METHOD)
 class AlertIncidentFlowIntegrationTest {
     static final Instant NOW = Instant.parse("2026-10-29T12:00:00Z");
     static final UUID ORG = new UUID(0, 801), OTHER = new UUID(0, 802), ADMIN = new UUID(0, 803);
@@ -66,6 +67,7 @@ class AlertIncidentFlowIntegrationTest {
     @Autowired FailingAlertConsumer failing;
     String admin, viewer, other;
     UUID zone, point;
+    Map<UUID,UUID> pointSensors=new HashMap<>();
 
     @BeforeEach void setup() throws Exception {
         failing.enabled = false;
@@ -98,13 +100,16 @@ class AlertIncidentFlowIntegrationTest {
         return text.isEmpty() ? json.nullNode() : json.readTree(text);
     }
     UUID addPoint(String name) throws Exception {
-        return UUID.fromString(send(post(MONITORING + "/zones/" + zone + "/points"), admin,
-                Map.of("name", name), 201).get("id").asText());
+        UUID id=UUID.fromString(send(post(MONITORING+"/zones/"+zone+"/points"),admin,Map.of("name",name),201).path("id").asText());
+        UUID sensor=UUID.fromString(send(post(MONITORING+"/zones/"+zone+"/points/"+id+"/sensors"),admin,
+                Map.of("deviceCode","flow-"+id,"samplingIntervalSeconds",60),201).path("id").asText());
+        pointSensors.put(id,sensor);return id;
     }
-    JsonNode measurement(UUID target, int seconds, int value) throws Exception {
-        return send(post(MONITORING + "/measurements"), admin, Map.of("monitoringZoneId", zone,
-                "monitoringPointId", target, "environmentalVariable", "TEMPERATURE", "measuredValue", value,
-                "recordedAt", NOW.minusSeconds(seconds).toString()), 201);
+    JsonNode measurement(UUID target,int seconds,int value) {
+        // These lifecycle fixtures represent physical producer events; human HTTP writes are MANUAL.
+        return json.valueToTree(measurementCommands.handleSensor(new RegisterMeasurementCommand(ORG,zone,target,
+                pointSensors.get(target),com.machineguard.platform.environmentalmonitoring.domain.model.EnvironmentalVariable.TEMPERATURE,
+                BigDecimal.valueOf(value),OffsetDateTime.ofInstant(NOW.minusSeconds(seconds/10),ZoneOffset.UTC))));
     }
     JsonNode incidents() throws Exception { return send(get("/api/v1/incidents"), admin, null, 200); }
     String incidentId() throws Exception { return incidents().get(0).get("id").asText(); }

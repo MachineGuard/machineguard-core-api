@@ -56,7 +56,7 @@ class AlertApiIntegrationTest {
     }
 
     String auth(UUID org, Role role) {
-        return "Bearer " + tokens.issueAccessToken(UUID.randomUUID(), org, role, UUID.randomUUID()).value();
+        return "Bearer " + com.machineguard.platform.support.SessionFixtures.token(jdbc,tokens,UUID.randomUUID(), org, role, UUID.randomUUID());
     }
 
     @Test void adminAndViewerCanListAndReadDetails() throws Exception {

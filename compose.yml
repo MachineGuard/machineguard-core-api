@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: machineguard
       POSTGRES_PASSWORD: ${MACHINEGUARD_DB_PASSWORD:?Set MACHINEGUARD_DB_PASSWORD in .env}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - machineguard-postgres:/var/lib/postgresql/data
     healthcheck:
@@ -21,6 +21,8 @@ services:
       postgres:
         condition: service_healthy
     environment:
+      SERVER_ADDRESS: 0.0.0.0
+      CORE_OPENAPI_ENABLED: ${CORE_OPENAPI_ENABLED:-false}
       DB_URL: jdbc:postgresql://postgres:5432/machineguard
       DB_USERNAME: machineguard
       DB_PASSWORD: ${MACHINEGUARD_DB_PASSWORD:?Set MACHINEGUARD_DB_PASSWORD in .env}
@@ -33,7 +35,7 @@ services:
       IAM_BOOTSTRAP_ADMIN_EMAIL: ${IAM_BOOTSTRAP_ADMIN_EMAIL:-}
       IAM_BOOTSTRAP_ADMIN_PASSWORD: ${IAM_BOOTSTRAP_ADMIN_PASSWORD:-}
     ports:
-      - "${API_PORT:-8080}:8080"
+      - "127.0.0.1:${API_PORT:-8080}:8080"
 
 volumes:
   machineguard-postgres:

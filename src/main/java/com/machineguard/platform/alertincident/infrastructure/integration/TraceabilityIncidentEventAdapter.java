@@ -23,6 +23,7 @@ public class TraceabilityIncidentEventAdapter {
 
     @EventListener
     public void on(IncidentResolved event) {
+        if (event.historical()) return;
         EnvironmentalVariable variable = event.environmentalVariable() == null ? null
                 : EnvironmentalVariable.valueOf(event.environmentalVariable().name());
         publisher.publishEvent(new InboundEvents.IncidentResolved(event.organizationId(), event.incidentId(),

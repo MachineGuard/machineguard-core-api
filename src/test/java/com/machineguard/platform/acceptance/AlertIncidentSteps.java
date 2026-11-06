@@ -22,7 +22,8 @@ public class AlertIncidentSteps {
     private final MockMvc mvc;
     private final ObjectMapper json;
     private final JdbcTemplate jdbc;
-    private Instant capturedAt = Instant.now().minusSeconds(1800);
+    private Instant capturedAt = Instant.now().minusSeconds(10);
+    private String gatewayCredential,deviceCode;
     private String incidentId, alertId, originMeasurementId;
 
     public AlertIncidentSteps(ScenarioContext context, MockMvc mvc, ObjectMapper json, JdbcTemplate jdbc) {
@@ -39,14 +40,25 @@ public class AlertIncidentSteps {
     @Cuando("{string} registra por API en {string} una temperatura de {double} grados")
     public void recordsMeasurement(String email, String zone, double value) throws Exception {
         capturedAt = capturedAt.plusSeconds(1);
-        context.lastResult = mvc.perform(bearer(post("/api/v1/environmental-monitoring/measurements"), context.accessToken(email))
-                .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of(
-                        "monitoringZoneId", context.zone(zone), "monitoringPointId", context.points.get(zone),
-                        "environmentalVariable", "TEMPERATURE", "measuredValue", BigDecimal.valueOf(value),
-                        "recordedAt", capturedAt.toString())))).andReturn();
+        if (gatewayCredential==null) {
+            UUID sensor=UUID.randomUUID();deviceCode="bdd-"+sensor;
+            jdbc.update("INSERT INTO sensor_nodes(id,monitoring_point_id,device_code,sampling_interval_seconds,status,created_at) VALUES (?,?,?,60,'OFFLINE',?)",
+                    sensor,context.points.get(zone),deviceCode,Timestamp.from(Instant.now()));
+            jdbc.update("INSERT INTO thresholds(id,monitoring_zone_id,environmental_variable,minimum_value,maximum_value,created_at,updated_at) VALUES (?,?,'HUMIDITY',30,75,?,?)",
+                    UUID.randomUUID(),context.zone(zone),Timestamp.from(Instant.now()),Timestamp.from(Instant.now()));
+            var issued=mvc.perform(bearer(post("/api/v1/gateways"),context.accessToken(email)).contentType(MediaType.APPLICATION_JSON)
+                    .content(json.writeValueAsString(Map.of("name","BDD physical gateway","sensorNodeIds",java.util.List.of(sensor))))).andReturn();
+            assertEquals(201,issued.getResponse().getStatus());gatewayCredential=json.readTree(issued.getResponse().getContentAsString()).path("credential").asText();
+        }
+        var delivered=mvc.perform(post("/api/v1/measurements").header("X-Device-Credential",gatewayCredential)
+            .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("deviceCode",deviceCode,
+                "temperature",BigDecimal.valueOf(value),"humidity",50,"capturedAt",capturedAt.toString())))).andReturn();
+        assertEquals(201,delivered.getResponse().getStatus());
+        UUID measurement=jdbc.queryForObject("SELECT id FROM measurements WHERE monitoring_zone_id=? AND environmental_variable='TEMPERATURE' AND recorded_at=?",UUID.class,context.zone(zone),Timestamp.from(capturedAt.truncatedTo(java.time.temporal.ChronoUnit.MICROS)));
+        context.lastResult=delivered;
         assertEquals(201, context.lastStatus(), context.lastBodyText());
         if (originMeasurementId == null) {
-            originMeasurementId = context.lastBody().get("id").asText();
+            originMeasurementId = measurement.toString();
             var result = mvc.perform(bearer(get("/api/v1/alerts").param("monitoringZoneId", context.zone(zone).toString()),
                     context.accessToken(email))).andReturn();
             var alert = json.readTree(result.getResponse().getContentAsString()).get(0);

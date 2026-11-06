@@ -1,10 +1,47 @@
 # MachineGuard Core API
 
+Toda escritura humana requiere una sesión vigente, usuario y organización activos
+y el rol actual. Un JWT con sesión revocada o rol anterior devuelve 401; un rol
+vigente sin permiso devuelve 403. Las consultas conservan la validación de firma
+y expiración del JWT. Login, refresh e invitación usan sus propias credenciales;
+la ingesta gateway conserva su frontera independiente.
+
+Login admite cinco intentos por minuto por email normalizado y por IP de conexión.
+Un 429 incluye `Retry-After`; no se confía en `X-Forwarded-For` del cliente.
+El contador es local a una instancia y tiene memoria acotada; al llenarse rechaza
+nuevas identidades hasta que expire la ventana. Varias instancias necesitan un
+control compartido. Las variables están en `.env.example`.
+
+Core y PostgreSQL de Compose solo publican puertos en loopback. OpenAPI/Swagger
+están deshabilitados por defecto; `CORE_OPENAPI_ENABLED=true` los habilita.
+La imagen de Core ejecuta la aplicación como usuario 10001, con escritura temporal
+en `/tmp`. El servidor local escucha en `127.0.0.1` salvo configuración explícita.
+
 Para probar la integración completa en esta PC, consultar el
 [entorno local de testing para Windows](docs/local-testing.md): inicio y parada
 de Web/Core/PostgreSQL aislados, cuentas ADMIN/VIEWER y conservación de datos.
 
 REST API central de MachineGuard con los bounded contexts **IAM**, **Environmental Monitoring**, **Alert & Incident Management** y **Traceability & Quality**, desarrollada con Spring Boot 3.5, Spring Security, Spring Data JPA, Flyway y PostgreSQL. Los identificadores son UUID. La documentación OpenAPI y Swagger UI se sirven desde la propia API.
+
+La ingesta de gateway devuelve un `code` estable al rechazar: `READING_INVALID`,
+`READING_TIME_INVALID` o `READING_CONFLICT` identifican una muestra;
+`NODE_NOT_AUTHORIZED`, `NODE_INACTIVE` y `THRESHOLD_NOT_CONFIGURED` requieren
+corregir la configuración del nodo. `GATEWAY_CREDENTIAL_REJECTED` (401) y
+`GATEWAY_INGEST_FORBIDDEN` (403) indican problemas de acceso. Conserva los
+pendientes ante códigos desconocidos. Los estados HTTP y los recibos de éxito
+no cambian; cada lote sigue siendo atómico.
+
+Las mediciones nuevas indican `source`: `SENSOR` desde el gateway y `MANUAL`
+desde usuarios. Las anteriores quedan como `LEGACY_UNKNOWN`. Solo evidencia
+física acredita disponibilidad y recuperación. La ventana es el mayor de 30 s
+y tres intervalos del sensor; consulta captura, recepción, edad y `freshness`.
+Para resolver se exige evidencia vigente de la variable del incidente en todos
+los puntos activos con sensores elegibles. Con varios sensores se elige la
+captura vigente más reciente por punto; manuales y sensores inactivos no cuentan.
+El detalle devuelve `resolutionBlockReasons`; el POST vuelve a comprobarlo.
+La recuperación de una excursión también exige esas lecturas SENSOR vigentes;
+una medición manual se conserva y puede alertar, pero no acredita recuperación.
+`historical` indica el carácter actual del incidente; el mensaje original se conserva.
 
 ## Inicio local con Docker Compose
 
@@ -176,6 +213,15 @@ Los gateways se aprovisionan mediante un ADMIN activo y reciben una credencial o
 
 Contratos: [Credenciales de gateway](docs/gateways.md) y [Ingesta Edge-Core](docs/gateway-ingestion.md).
 
+Las capturas requieren zona horaria. Se rechazan fechas anteriores al 01/01/2026 UTC,
+de más de 30 días o con más de 60 s de adelanto; los límites están en `.env.example`.
+Las desviaciones tardías generan evidencia y se agrupan en un incidente sin cambiar
+el estado ambiental actual. `historical` indica que todas sus mediciones son tardías;
+si recibe una desviación vigente pasa a ser un caso actual. Cerrar un caso histórico
+no vincula ni cierra excursiones. Consulta la evidencia con
+`GET /api/v1/traceability/late-deviations?monitoringZoneId=<uuid>&limit=100`
+(JWT ADMIN/VIEWER, máximo 500 registros). Los reportes sellados no se modifican.
+
 - Swagger UI: `http://localhost:8080/swagger-ui.html`
 - Documento OpenAPI: `http://localhost:8080/v3/api-docs`
 - Variables IAM: `IAM_JWT_SECRET`, `IAM_ACCESS_TOKEN_TTL_SECONDS` (de 60 a 3600 segundos), `IAM_REFRESH_TOKEN_TTL_DAYS` (por defecto 30) y `IAM_BOOTSTRAP_*`.
@@ -190,3 +236,14 @@ Los criterios de aceptación de las historias del Sprint 1 (TS06, TS07, TS08, US
 - Toda la batería: `mvn test`. Solo BDD: `mvn test -Dtest=CucumberAcceptanceTest`.
 - Reporte HTML: `target/cucumber-reports/cucumber.html`.
 - GitHub Actions (`.github/workflows/ci.yml`) ejecuta las pruebas en cada push y pull request a `develop` y `main`, y publica el reporte como artefacto.
+
+La CI incluye un job separado con PostgreSQL real y Edge, instalado desde su lock
+con hashes. Ejecuta las live sin omitirlas y una matriz secundaria ThingSpeak con
+doble local; la suite habitual conserva H2. El runner y los pasos locales están en
+`machineguard-edge-api/scripts/ci.md`. Requiere publicar primero las refs auditadas
+y fijar el SHA compañero en el workflow. El acceso privado usa un token de solo
+lectura configurado por Pedro; este cambio no crea secretos ni modifica GitHub.
+Los gates de secretos y dependencias fallan ante hallazgos o consultas incompletas.
+La actualización compatible de Commons Lang y Log4j conserva Boot 3.5.
+Los avisos Spring pendientes mantienen rojo el gate; cerrarlo requiere revisar
+una actualización de plataforma o acceso Enterprise, sin excepciones al escáner.

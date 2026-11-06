@@ -52,6 +52,12 @@ public class JpaMeasurementRepositoryAdapter implements MeasurementRepository {
     public List<Measurement> findLatest(UUID organizationId, UUID zoneId) {
         return repository.findLatest(organizationId, zoneId);
     }
+    @Override public List<Measurement> findLatestSensorMeasurements(UUID organizationId,UUID zoneId) {
+        return repository.findLatestSensorMeasurements(organizationId,zoneId);
+    }
+    @Override public List<Measurement> findLatestSensorReceipts(UUID organizationId,UUID zoneId) {
+        return repository.findLatestSensorReceipts(organizationId,zoneId);
+    }
     @Override
     public MeasurementHistoryPage findHistory(GetMeasurementHistory query) {
         Specification<Measurement> filter = (root, criteria, builder) -> {

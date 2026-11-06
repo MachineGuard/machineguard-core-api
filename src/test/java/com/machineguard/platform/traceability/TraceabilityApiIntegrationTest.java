@@ -88,7 +88,7 @@ class TraceabilityApiIntegrationTest {
     }
 
     private MockHttpServletRequestBuilder withIdentity(MockHttpServletRequestBuilder request, UUID org) {
-        String accessToken = jwtTokens.issueAccessToken(USER, org, Role.ADMIN, uuid(888)).value();
+        String accessToken = com.machineguard.platform.support.SessionFixtures.token(jdbc,jwtTokens,USER, org, Role.ADMIN, uuid(888));
         UUID spoofedOrganization = org.equals(ORG) ? OTHER_ORG : ORG;
         return request.header("Authorization", "Bearer " + accessToken)
                 .header("X-Organization-Id", spoofedOrganization).header("X-User-Id", uuid(777));

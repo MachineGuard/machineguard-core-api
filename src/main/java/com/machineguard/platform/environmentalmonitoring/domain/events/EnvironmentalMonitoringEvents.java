@@ -10,6 +10,10 @@ public final class EnvironmentalMonitoringEvents {
     public record DeviationDetected(UUID measurementId, UUID organizationId, UUID monitoringZoneId,
             UUID monitoringPointId, UUID sensorNodeId, EnvironmentalVariable environmentalVariable,
             BigDecimal measuredValue, BigDecimal minimumValue, BigDecimal maximumValue, OffsetDateTime recordedAt) {}
+    public record LateDeviationDetected(UUID measurementId, UUID organizationId, UUID monitoringZoneId,
+            UUID monitoringPointId, UUID sensorNodeId, EnvironmentalVariable environmentalVariable,
+            BigDecimal measuredValue, BigDecimal minimumValue, BigDecimal maximumValue,
+            OffsetDateTime recordedAt, OffsetDateTime receivedAt) {}
     public record SafeRangeRestored(UUID measurementId, UUID organizationId, UUID monitoringZoneId,
             UUID monitoringPointId, UUID sensorNodeId, EnvironmentalVariable environmentalVariable,
             BigDecimal measuredValue, OffsetDateTime recordedAt, OffsetDateTime restoredAt) {}

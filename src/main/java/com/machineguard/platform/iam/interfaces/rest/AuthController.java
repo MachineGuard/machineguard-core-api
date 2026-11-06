@@ -1,6 +1,8 @@
 package com.machineguard.platform.iam.interfaces.rest;
 
 import com.machineguard.platform.iam.application.IamService;
+import com.machineguard.platform.iam.application.LoginRateLimiter;
+import jakarta.servlet.http.HttpServletRequest;
 import com.machineguard.platform.iam.infrastructure.security.IamPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -25,15 +27,18 @@ import static com.machineguard.platform.iam.interfaces.rest.IamResources.*;
 @Tag(name = "Authentication", description = "JWT access tokens and rotating refresh sessions")
 public class AuthController {
     private final IamService iam;
+    private final LoginRateLimiter limiter;
 
-    public AuthController(IamService iam) { this.iam = iam; }
+    public AuthController(IamService iam,LoginRateLimiter limiter) { this.iam = iam;this.limiter=limiter; }
 
     @PostMapping("/login")
     @Operation(summary = "Authenticate with normalized email and password")
-    public AuthenticationResource login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<AuthenticationResource> login(@Valid @RequestBody LoginRequest request,HttpServletRequest client) {
+        long retry=limiter.attempt(request.email(),client.getRemoteAddr());
+        if(retry>0)throw new com.machineguard.platform.iam.application.LoginThrottledException(retry);
         var result = iam.login(request.email(), request.password());
-        return new AuthenticationResource("Bearer", result.accessToken().value(), result.accessToken().expiresIn(),
-                result.refreshToken(), result.user(), result.organization());
+        return ResponseEntity.ok(new AuthenticationResource("Bearer", result.accessToken().value(), result.accessToken().expiresIn(),
+                result.refreshToken(), result.user(), result.organization()));
     }
 
     @PostMapping("/refresh")

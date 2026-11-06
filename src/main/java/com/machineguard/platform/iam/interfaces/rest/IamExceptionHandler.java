@@ -14,6 +14,12 @@ import java.util.Map;
 
 @RestControllerAdvice(basePackages = "com.machineguard.platform.iam")
 public class IamExceptionHandler {
+    @ExceptionHandler(com.machineguard.platform.iam.application.LoginThrottledException.class)
+    public ResponseEntity<Map<String,Object>> throttled(com.machineguard.platform.iam.application.LoginThrottledException exception) {
+        return ResponseEntity.status(429).header("Retry-After",Long.toString(exception.retryAfter()))
+                .body(Map.of("status",429,"message","Too many login attempts; retry later"));
+    }
+
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, Object>> status(ResponseStatusException error) {
         HttpStatus status = HttpStatus.valueOf(error.getStatusCode().value());

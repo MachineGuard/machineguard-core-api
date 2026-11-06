@@ -30,11 +30,11 @@ public final class AlertIncidentResources {
 
     public record IncidentResource(UUID id, UUID originMeasurementId, UUID monitoringZoneId, String environmentalVariable,
                                    String status, Instant openedAt, Instant resolvedAt, UUID resolvedBy,
-                                   String resolutionNotes) {
+                                   String resolutionNotes, boolean historical) {
     }
 
     public record AlertResource(UUID id, UUID incidentId, UUID monitoringZoneId, String severity, String status,
-                                String message, Instant raisedAt, Instant acknowledgedAt, Instant escalatedAt) {
+                                String message, Instant raisedAt, Instant acknowledgedAt, Instant escalatedAt,boolean historical) {
     }
 
     public record AcknowledgementResource(UUID acknowledgedBy, Instant acknowledgedAt, String note) {
@@ -49,7 +49,7 @@ public final class AlertIncidentResources {
     public record IncidentDetailResource(IncidentResource incident, AlertResource alert,
                                          AcknowledgementResource acknowledgement,
                                          List<CorrectiveActionResource> correctiveActions,
-                                         boolean withinSafeRange, boolean resolutionAllowed) {
+                                         boolean withinSafeRange, boolean resolutionAllowed,List<String> resolutionBlockReasons) {
     }
 
     /** Resultado del reconocimiento: la alerta y el incidente quedan en su nuevo estado. */
