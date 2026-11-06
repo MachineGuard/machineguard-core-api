@@ -11,6 +11,7 @@ import com.machineguard.platform.iam.infrastructure.security.JwtTokenService;
 import com.machineguard.platform.traceability.domain.model.ReportPeriod;
 import com.machineguard.platform.traceability.domain.model.RetentionPeriod;
 import com.machineguard.platform.traceability.domain.model.TraceabilityReport;
+import com.machineguard.platform.traceability.domain.repositories.TraceabilityReportRepository;
 import com.machineguard.platform.traceability.domain.services.TraceabilityReportAssemblyService;
 import com.machineguard.platform.traceability.domain.services.RetentionPolicyService;
 import org.junit.jupiter.api.BeforeEach;
@@ -78,6 +79,7 @@ class TraceabilityApiIntegrationTest {
     @Autowired RetentionPolicyService retention;
     @Autowired JwtTokenService jwtTokens;
     @Autowired TraceabilityReportAssemblyService reportAssembly;
+    @Autowired TraceabilityReportRepository reports;
 
     @BeforeEach
     void cleanDatabase() {
@@ -106,6 +108,12 @@ class TraceabilityApiIntegrationTest {
                 report.getContent());
         assertEquals("0fc1a59783dd7c7514da5902a76d9f436b4e58eaccdb07a7b7156efe1720db88", report.getChecksum());
         assertTrue(report.verifyIntegrity());
+
+        TraceabilityReport persisted = reports.saveAndFlush(report);
+        TraceabilityReport loaded = reports.findById(persisted.getId()).orElseThrow();
+        assertEquals(report.getContent(), loaded.getContent());
+        assertEquals(report.getChecksum(), loaded.getChecksum());
+        assertTrue(loaded.verifyIntegrity());
     }
 
     private MockHttpServletRequestBuilder withIdentity(MockHttpServletRequestBuilder request, UUID org) {
