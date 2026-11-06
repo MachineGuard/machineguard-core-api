@@ -1,7 +1,7 @@
 package com.machineguard.platform.environmentalmonitoring;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 import com.machineguard.platform.iam.domain.model.*;
 import com.machineguard.platform.iam.infrastructure.persistence.OrganizationEntity;
 import com.machineguard.platform.iam.infrastructure.persistence.UserEntity;
@@ -14,7 +14,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.test.context.event.*;
 import com.machineguard.platform.environmentalmonitoring.domain.events.EnvironmentalMonitoringEvents.SafeRangeRestored;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -44,7 +44,7 @@ class GatewayIngestionApiIntegrationTest {
     }
     @Autowired MockMvc mvc;
     @Autowired ApplicationEvents events;
-    @Autowired ObjectMapper json;
+    @Autowired JsonMapper json;
     @Autowired JdbcTemplate jdbc;
     @Autowired OrganizationJpaRepository organizations;
     @Autowired UserJpaRepository users;

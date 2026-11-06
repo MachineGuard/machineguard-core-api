@@ -1,7 +1,7 @@
 package com.machineguard.platform.iam;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 import com.machineguard.platform.iam.domain.model.OrganizationStatus;
 import com.machineguard.platform.iam.domain.model.Role;
 import com.machineguard.platform.iam.domain.model.SubscriptionPlan;
@@ -16,7 +16,7 @@ import com.machineguard.platform.iam.infrastructure.security.JwtTokenService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -52,7 +52,7 @@ class IamApiIntegrationTest {
     private static final String PASSWORD = "correct horse battery";
 
     @Autowired MockMvc mvc;
-    @Autowired ObjectMapper json;
+    @Autowired JsonMapper json;
     @Autowired JdbcTemplate jdbc;
     @Autowired PasswordEncoder passwords;
     @Autowired OrganizationJpaRepository organizations;

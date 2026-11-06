@@ -1,6 +1,6 @@
 package com.machineguard.platform.acceptance;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import io.cucumber.java.es.Cuando;
 import io.cucumber.java.es.Dado;
 import io.cucumber.java.es.Entonces;
@@ -20,13 +20,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 public class AlertIncidentSteps {
     private final ScenarioContext context;
     private final MockMvc mvc;
-    private final ObjectMapper json;
+    private final JsonMapper json;
     private final JdbcTemplate jdbc;
     private Instant capturedAt = Instant.now().minusSeconds(10);
     private String gatewayCredential,deviceCode;
     private String incidentId, alertId, originMeasurementId;
 
-    public AlertIncidentSteps(ScenarioContext context, MockMvc mvc, ObjectMapper json, JdbcTemplate jdbc) {
+    public AlertIncidentSteps(ScenarioContext context, MockMvc mvc, JsonMapper json, JdbcTemplate jdbc) {
         this.context = context; this.mvc = mvc; this.json = json; this.jdbc = jdbc;
     }
 

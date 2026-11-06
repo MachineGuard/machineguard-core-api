@@ -1,7 +1,7 @@
 package com.machineguard.platform.alertincident;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 import com.machineguard.platform.alertincident.application.commandservices.RaiseAlertCommandService;
 import com.machineguard.platform.alertincident.domain.commands.AlertIncidentCommands.RaiseAlertCommand;
 import com.machineguard.platform.alertincident.domain.events.AlertIncidentEvents.AlertRaised;
@@ -16,7 +16,7 @@ import com.machineguard.platform.iam.infrastructure.persistence.repository.Organ
 import com.machineguard.platform.iam.infrastructure.persistence.repository.UserJpaRepository;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.*;
@@ -57,7 +57,7 @@ class AlertIncidentFlowIntegrationTest {
         }
     }
     @Autowired MockMvc mvc;
-    @Autowired ObjectMapper json;
+    @Autowired JsonMapper json;
     @Autowired JdbcTemplate jdbc;
     @Autowired OrganizationJpaRepository organizations;
     @Autowired UserJpaRepository users;

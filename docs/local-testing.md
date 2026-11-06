@@ -12,6 +12,10 @@ Cloudflare; tampoco representa un despliegue de producción.
   del Core. Si está en otra ubicación, usar `-WebDirectory`.
 - Internet para descargar las dependencias de Maven/npm cuando sea necesario.
 
+Combinación comprobada para este launcher: PowerShell 7.6.5, Java 21.0.12.1,
+Maven 3.9.10, PostgreSQL 17.5, Node 26.12.1 y npm 11.19.0 en Windows.
+No implica que otras versiones hayan sido verificadas.
+
 Desde la raíz del Core:
 
 ```powershell
@@ -22,13 +26,22 @@ El script compila el Core sin volver a ejecutar sus pruebas, instala las
 dependencias de Web con `npm ci` si falta la instalación o cambió el lockfile,
 inicia su PostgreSQL privado, aplica Flyway y
 levanta Core y Angular. Espera que ambos servicios respondan antes de anunciar
-que está listo. No depende de Docker ni cambia la configuración de otra base.
+que está listo: comprueba la respuesta protegida de Core, autentica al ADMIN del
+bootstrap y verifica el acceso del VIEWER antes de esperar la Web. No depende de
+Swagger, Docker ni cambia la configuración de otra base. Las esperas son
+acotadas; el login de bootstrap se reintenta espaciado si aún no está disponible
+o si recibe 429, sin modificar el límite de autenticación del producto.
+
+OpenAPI está desactivado por defecto. Para habilitarlo deliberadamente solo en
+la sesión de testing, define `$env:CORE_OPENAPI_ENABLED = "true"` antes de `Up`
+y elimina esa variable después. Con OpenAPI desactivado, `/v3/api-docs` y la
+interfaz Swagger no están disponibles.
 
 | Servicio | Dirección predeterminada |
 |---|---|
 | Web y login | http://127.0.0.1:18420/login |
 | API Core | http://127.0.0.1:18090 |
-| Swagger Core | http://127.0.0.1:18090/swagger-ui/index.html |
+| Swagger Core (solo si se habilita) | http://127.0.0.1:18090/swagger-ui/index.html |
 | PostgreSQL privado | 127.0.0.1:55441 |
 
 Web usa el proxy local `/api/v1`; no hay que introducir tokens ni cabeceras de

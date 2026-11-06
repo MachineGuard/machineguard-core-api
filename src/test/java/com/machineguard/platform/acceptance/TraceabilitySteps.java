@@ -1,7 +1,7 @@
 package com.machineguard.platform.acceptance;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 import com.machineguard.platform.traceability.application.integration.InboundEvents.DeviationDetected;
 import com.machineguard.platform.traceability.application.integration.InboundEvents.IncidentResolved;
 import com.machineguard.platform.traceability.application.integration.InboundEvents.SafeRangeRestored;
@@ -40,11 +40,11 @@ public class TraceabilitySteps {
 
     private final ScenarioContext context;
     private final MockMvc mvc;
-    private final ObjectMapper json;
+    private final JsonMapper json;
     private final JdbcTemplate jdbc;
     private final ApplicationEventPublisher events;
 
-    public TraceabilitySteps(ScenarioContext context, MockMvc mvc, ObjectMapper json, JdbcTemplate jdbc,
+    public TraceabilitySteps(ScenarioContext context, MockMvc mvc, JsonMapper json, JdbcTemplate jdbc,
                              ApplicationEventPublisher events) {
         this.context = context;
         this.mvc = mvc;

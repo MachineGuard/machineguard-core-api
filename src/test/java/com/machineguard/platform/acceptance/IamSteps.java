@@ -1,7 +1,7 @@
 package com.machineguard.platform.acceptance;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 import com.machineguard.platform.iam.domain.model.OrganizationStatus;
 import com.machineguard.platform.iam.domain.model.Role;
 import com.machineguard.platform.iam.domain.model.SubscriptionPlan;
@@ -39,13 +39,13 @@ public class IamSteps {
 
     private final ScenarioContext context;
     private final MockMvc mvc;
-    private final ObjectMapper json;
+    private final JsonMapper json;
     private final JdbcTemplate jdbc;
     private final PasswordEncoder passwordEncoder;
     private final OrganizationJpaRepository organizations;
     private final UserJpaRepository users;
 
-    public IamSteps(ScenarioContext context, MockMvc mvc, ObjectMapper json, JdbcTemplate jdbc,
+    public IamSteps(ScenarioContext context, MockMvc mvc, JsonMapper json, JdbcTemplate jdbc,
                     PasswordEncoder passwordEncoder, OrganizationJpaRepository organizations,
                     UserJpaRepository users) {
         this.context = context;
