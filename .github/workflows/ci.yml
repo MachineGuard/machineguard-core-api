@@ -111,6 +111,19 @@ jobs:
           DB_USERNAME: mgci
           DB_PASSWORD: ''
         run: python edge/scripts/edge-core-integration.py --core core --edge edge --report reports/integration
+      - name: Ejecutar pruebas B-03 de captación contra PostgreSQL real
+        working-directory: core
+        env:
+          MACHINEGUARD_TEST_DB_URL: jdbc:postgresql://127.0.0.1:5432/mgci_test
+          JAVA_TOOL_OPTIONS: >-
+            -Dspring.datasource.driver-class-name=org.postgresql.Driver
+            -Dspring.datasource.username=mgci
+            -Dspring.datasource.password=
+        run: >-
+          mvn -B
+          -Dtest=PilotOperatorApiIntegrationTest,PilotRequestApiIntegrationTest,PilotRequestCorsIntegrationTest,PilotRequestRateLimitIntegrationTest
+          -Dmachineguard.test.reports.directory=$GITHUB_WORKSPACE/reports/core-b03-postgres
+          test
       - uses: actions/upload-artifact@v7
         if: always()
         with:
