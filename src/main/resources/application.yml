@@ -30,6 +30,8 @@ machineguard:
     login-window-seconds: ${IAM_LOGIN_WINDOW_SECONDS:60}
     login-max-keys: ${IAM_LOGIN_MAX_KEYS:10000}
     jwt-secret: ${IAM_JWT_SECRET:}
+    # SHA-256 hex of the operator key used for global pilot approval. Empty disables /api/v1/operator/**.
+    operator-key-hash: ${IAM_OPERATOR_KEY_HASH:}
     issuer: machineguard-iam
     access-token-ttl-seconds: ${IAM_ACCESS_TOKEN_TTL_SECONDS:900}
     refresh-token-ttl-days: ${IAM_REFRESH_TOKEN_TTL_DAYS:30}
@@ -39,6 +41,12 @@ machineguard:
       admin-name: ${IAM_BOOTSTRAP_ADMIN_NAME:}
       admin-email: ${IAM_BOOTSTRAP_ADMIN_EMAIL:}
       admin-password: ${IAM_BOOTSTRAP_ADMIN_PASSWORD:}
+  acquisition:
+    # Exact Landing origins allowed to POST /api/v1/pilot-requests. Empty disables CORS for that route.
+    cors-allowed-origins: ${ACQUISITION_CORS_ALLOWED_ORIGINS:}
+    pilot-ip-limit: ${ACQUISITION_PILOT_IP_LIMIT:20}
+    pilot-window-seconds: ${ACQUISITION_PILOT_WINDOW_SECONDS:3600}
+    pilot-max-keys: ${ACQUISITION_PILOT_MAX_KEYS:10000}
   traceability:
     # Retention Period del Measurement History y de las excursiones (meses).
     retention-months: ${TRACEABILITY_RETENTION_MONTHS:60}
