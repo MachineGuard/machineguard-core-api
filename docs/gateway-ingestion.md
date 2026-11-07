@@ -35,3 +35,27 @@ The Edge client splits larger local selections into requests of at most 500. If 
 Provision sensors in Core first, then issue a gateway scoped to those sensor UUIDs. Configure the same physical deviceCode in Edge and set MACHINEGUARD_API_URL and private EDGE_DEVICE_CREDENTIAL. EDGE_GATEWAY_ID is a local buffer label and is not accepted as authentication.
 
 Tests: GatewayIngestionApiIntegrationTest exercises both variables, lost confirmation, conflicting retries, batches, rollback, time precision, authorization, credential lifecycle and concurrency. The application service uses GatewayDeviceResolver and existing RegisterMeasurementCommandService; it does not interpret JWTs or directly query infrastructure repositories.
+
+## Códigos de error
+
+Cada rechazo responde un `ProblemDetail` con la propiedad `code`. Los códigos son el contrato de máquina; el texto puede cambiar.
+
+| Código | HTTP | Significado |
+|---|---|---|
+| `READING_INVALID` | 400 | Formato o valores inválidos en la medición o el lote |
+| `READING_TIME_INVALID` | 400 | Captura fuera de los límites de tiempo |
+| `NODE_NOT_AUTHORIZED` | 404 | Dispositivo desconocido, ajeno o fuera del alcance del gateway |
+| `NODE_INACTIVE` | 409 | Zona, punto o sensor inactivo |
+| `THRESHOLD_NOT_CONFIGURED` | 409 | Falta el umbral de la variable |
+| `READING_CONFLICT` | 409 | Ya existe otra lectura distinta para ese punto, variable e instante |
+| `INGESTION_REJECTED` | 409 | Otro rechazo de regla de negocio |
+| `GATEWAY_CREDENTIAL_REJECTED` | 401 | Credencial de gateway ausente, inválida, vencida o revocada |
+| `GATEWAY_INGEST_FORBIDDEN` | 403 | Token humano usado en una ruta de máquina |
+
+Los estados HTTP y los recibos de éxito no cambian, y cada lote sigue siendo atómico. El cliente Edge conserva las lecturas pendientes ante códigos que no reconoce; ese comportamiento pertenece al repositorio Edge.
+
+## Capturas tardías y límites de tiempo
+
+Las capturas requieren zona horaria. Se rechazan las anteriores a `CORE_MIN_RECORDED_AT` (por defecto 01/01/2026 UTC), las de más de `CORE_MAX_READING_AGE_DAYS` (30 días) y las que se adelantan más de `CORE_MAX_FUTURE_SECONDS` (60 s). Los valores están en [configuracion.md](configuracion.md).
+
+Las desviaciones tardías generan evidencia y se agrupan en un incidente sin cambiar el estado ambiental actual. `historical` indica que todas sus mediciones son tardías; si recibe una desviación vigente, pasa a ser un caso actual. Cerrar un caso histórico no vincula ni cierra excursiones. La evidencia se consulta con `GET /api/v1/traceability/late-deviations?monitoringZoneId=<uuid>&limit=100` (JWT ADMIN o VIEWER, `limit` máximo 500). Los reportes sellados no se modifican.

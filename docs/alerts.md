@@ -1,6 +1,6 @@
 # Alertas e incidentes integrados
 
-La integracion conserva las entregas de Camilla (`7297b24`, consultas y persistencia) y Diego (`9dacee5`, ciclo de vida y generacion), con sus commits originales. El paquete comun es `com.machineguard.platform.alertincident`; no se mantienen dos entidades Alert ni dos beans con el mismo nombre.
+El paquete comun es `com.machineguard.platform.alertincident`; no se mantienen dos entidades Alert ni dos beans con el mismo nombre.
 
 ## Contrato HTTP
 
@@ -57,6 +57,17 @@ Volver al rango seguro no crea otro estado administrativo ni cierra el incidente
 
 Repetir una medicion ya absorbida en el servicio de generacion recupera el incidente original incluso si esta resuelto. Esto no cambia el contrato REST general de Monitoring: duplicar punto/variable/timestamp en POST /environmental-monitoring/measurements sigue dando 409. La idempotencia de transporte Edge requiere su contrato de ingesta y no debe confundirse con la correlacion interna.
 
+## Evidencia, origen y resolucion
+
+- Las mediciones nuevas indican `source`: `SENSOR` desde el gateway y `MANUAL` desde usuarios. Las anteriores quedan como `LEGACY_UNKNOWN`.
+- Solo evidencia `SENSOR` vigente acredita disponibilidad y recuperacion. La ventana de vigencia es el mayor entre `CORE_FRESHNESS_MINIMUM_SECONDS` (30 s por defecto) y `CORE_FRESHNESS_INTERVAL_MULTIPLIER` (3 por defecto) veces el intervalo de muestreo del sensor.
+- Para resolver se exige evidencia vigente de la variable del incidente en todos los puntos activos con sensores elegibles. Con varios sensores se toma la captura vigente mas reciente por punto; manuales y sensores inactivos no cuentan.
+- El detalle devuelve `resolutionBlockReasons`, y el POST de resolucion vuelve a comprobarlo.
+- Una medicion manual se conserva y puede alertar, pero no acredita recuperacion.
+- `historical` indica el caracter actual del incidente; el mensaje original se conserva.
+- Existe un incidente activo por organizacion, zona y variable (OPEN, ACKNOWLEDGED o ESCALATED). Crear o recuperar devuelve el mismo `incidentId`.
+- `originMeasurementId` conserva la primera medicion. `incident_measurements` conserva todas las absorbidas, de modo que repetir una de ellas, incluso despues de resolver, no abre otro incidente.
+
 ## Migraciones
 
 V2/V6 no se modifican. V7 renombra la columna de origen y crea incident_measurements, precargando el origen de incidentes existentes. Las referencias a mediciones son logicas, y la FK hacia el incidente mantiene integridad. La prueba IncidentMigrationIntegrationTest migra una base V6 con incidente/alerta existentes y comprueba que V7 conserva sus datos y su asociacion.
@@ -68,17 +79,15 @@ mvn clean verify
 mvn -Dtest=AlertIncidentFlowIntegrationTest test
 ```
 
-La suite conserva las pruebas originales de ambos integrantes y agrega flujo completo desde login e ingesta real por HTTP, recuperacion/recaida, varias excursiones de un mismo incidente, replay posterior al cierre, rollback de fallos, autorizacion por rol/tenant, identidad de autores, OpenAPI y concurrencia.
+La suite incluye el flujo completo desde login e ingesta real por HTTP, recuperacion/recaida, varias excursiones de un mismo incidente, replay posterior al cierre, rollback de fallos, autorizacion por rol/tenant, identidad de autores, OpenAPI y concurrencia.
 
-Se incluyen cuatro escenarios Gherkin nuevos bajo `features/alertincident`, relacionados con US04, US05, US07, TS05 y TS08. Cubren generacion y agrupacion, reconocimiento con identidad, resolucion condicionada a recuperacion y acceso de VIEWER. No acreditan notificaciones externas ni escalamiento automatico.
+Los escenarios Gherkin de `src/test/resources/features/alertincident` cubren generacion y agrupacion, reconocimiento con identidad, resolucion condicionada a recuperacion y acceso de VIEWER. No acreditan notificaciones externas ni escalamiento automatico.
 
-Verificacion del 2026-10-29: `mvn clean verify` aprobo 171 pruebas, incluidos 35 escenarios Cucumber, y genero el paquete ejecutable. Las tres clases seleccionables sobre PostgreSQL aprobaron otras 23 pruebas en PostgreSQL 17.5 aislado, incluidos los casos de concurrencia y rollback.
-
-Para ejecutar las consultas, persistencia y flujo tambien sobre una base PostgreSQL de pruebas **aislada**, configurar MACHINEGUARD_TEST_DB_URL y los system properties spring.datasource.driver-class-name, spring.datasource.username y spring.datasource.password; seleccionar AlertIncidentFlowIntegrationTest, AlertApiIntegrationTest y AlertPersistenceIntegrationTest. Estas clases borran sus fixtures: nunca apuntarlas a una base compartida o productiva. El valor predeterminado sigue siendo H2 aislado.
+Para ejecutar estas pruebas sobre PostgreSQL real, siga [pruebas-y-ci.md](pruebas-y-ci.md#postgresql-real). El valor predeterminado sigue siendo H2 aislado.
 
 ## Alcance pendiente de otros componentes
 
-Las rutas y servicios quedan integrados en Core. El cliente Web debe activar su repositorio HTTP y mapear severidad y nombre de zona para consumirlos; esta entrega no cambia pantallas. La credencial y el payload del gateway Edge todavia necesitan la integracion correspondiente de #10. No se abren rutas de ingesta publicas ni se acepta una cabecera de dispositivo como identidad sin validarla.
+Las rutas y servicios quedan integrados en Core. El cliente Web debe activar su repositorio HTTP y mapear severidad y nombre de zona para consumirlos; esta entrega no cambia pantallas. La credencial de gateway ya esta implementada (ver `gateways.md`). No se abren rutas de ingesta publicas ni se acepta una cabecera de dispositivo como identidad sin validarla.
 
 Se conservan estados para escalamiento, pero no se implementa un job de escalamiento ni entrega Twilio. Estas capacidades no deben darse por terminadas a partir del CRUD y ciclo de vida de esta integracion.
 # Resolution eligibility

@@ -113,12 +113,11 @@ Si falla el arranque, consultar `build-core.log`, `install-web.log`,
 `postgres.log`, `core.stdout.log`, `core.stderr.log` y los logs `web.*.log` en
 el runtime. Un fallo de arranque intenta detener únicamente sus propios procesos.
 
-## Verificación del entorno
+## Comprobaciones del entorno
 
-El 30/10/2026 se ejecutaron **55 pruebas Edge**, incluidas las tres `live_core`,
-contra este Core y PostgreSQL 17.5 reales. También se comprobaron los dos roles
-mediante el proxy Web, el rechazo de escritura de VIEWER, la conservación de los
-identificadores y credenciales al detener/reiniciar, `Up`/`Down` repetidos, el
-rechazo de puertos ocupados y la protección ante registros de PID antiguos.
-Los tres servicios escucharon exclusivamente en loopback. Esta evidencia es de
-testing local; no supone pruebas de hardware ni publicación en Internet.
+Se comprobaron en este entorno: pruebas `live_core` del Edge contra este Core y PostgreSQL
+reales, acceso de los dos roles mediante el proxy Web, rechazo de escritura para VIEWER,
+conservación de identificadores y credenciales al detener y reiniciar, `Up` y `Down`
+repetidos, rechazo de puertos ocupados y protección ante registros de PID antiguos. Los tres
+servicios escuchan solo en loopback. Es evidencia de testing local: no supone pruebas de
+hardware ni publicación en Internet.
