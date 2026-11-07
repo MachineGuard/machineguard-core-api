@@ -1,11 +1,14 @@
 package com.machineguard.platform.customeracquisition;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -16,10 +19,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
         "machineguard.acquisition.cors-allowed-origins=https://landing.example.test",
         "machineguard.acquisition.pilot-ip-limit=1000"})
 @AutoConfigureMockMvc
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class PilotRequestCorsIntegrationTest {
     static final String LANDING = "https://landing.example.test";
 
     @Autowired MockMvc mvc;
+    @Autowired JdbcTemplate jdbc;
+
+    /** Pending requests reference organizations; remove them so other classes can clear organizations. */
+    @AfterEach void removePilotRequests() { jdbc.update("DELETE FROM pilot_requests"); }
 
     @Test void preflightIsAllowedOnlyForTheConfiguredLandingOriginAndOnlyForThePilotRoute() throws Exception {
         var allowed = mvc.perform(options("/api/v1/pilot-requests").header(HttpHeaders.ORIGIN, LANDING)

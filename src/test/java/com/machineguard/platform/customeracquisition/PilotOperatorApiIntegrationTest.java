@@ -5,12 +5,14 @@ import tools.jackson.databind.json.JsonMapper;
 import com.machineguard.platform.iam.domain.model.Role;
 import com.machineguard.platform.iam.infrastructure.security.JwtTokenService;
 import com.machineguard.platform.support.SessionFixtures;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -30,6 +32,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
         "machineguard.iam.operator-key-hash=3bdc694bfe022a50902353150f853db880248010ff2d0d407b846ebfdc1a4213",
         "machineguard.acquisition.pilot-ip-limit=1000"})
 @AutoConfigureMockMvc
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class PilotOperatorApiIntegrationTest {
     static final String OPERATOR_KEY = "mg-test-operator-key-not-for-production-2026";
     static final String PASSWORD = "landing pilot password 2026";
@@ -75,6 +78,9 @@ class PilotOperatorApiIntegrationTest {
         Integer value = jdbc.queryForObject(sql, Integer.class, args);
         return value == null ? -1 : value;
     }
+
+    /** Pending requests reference organizations; remove them so other classes can clear organizations. */
+    @AfterEach void removePilotRequests() { jdbc.update("DELETE FROM pilot_requests"); }
 
     @Test void operatorRoutesRejectMissingWrongAndUserCredentialsWithoutSideEffects() throws Exception {
         UUID id = submit(email(), "Sin clave SAC");

@@ -2,12 +2,14 @@ package com.machineguard.platform.customeracquisition;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -23,6 +25,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
         "spring.datasource.url=${MACHINEGUARD_TEST_DB_URL:jdbc:h2:mem:pilotintake;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE}",
         "machineguard.acquisition.pilot-ip-limit=1000"})
 @AutoConfigureMockMvc
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class PilotRequestApiIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired JsonMapper json;
@@ -52,6 +55,9 @@ class PilotRequestApiIntegrationTest {
         Integer value = jdbc.queryForObject(sql, Integer.class, args);
         return value == null ? -1 : value;
     }
+
+    /** Pending requests reference organizations; remove them so other classes can clear organizations. */
+    @AfterEach void removePilotRequests() { jdbc.update("DELETE FROM pilot_requests"); }
 
     @Test void validLandingPayloadIsAcceptedAsPendingWithoutCreatingATenant() throws Exception {
         String email = email();
