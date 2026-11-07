@@ -30,6 +30,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -248,15 +249,16 @@ public class IamService {
                 principal.expiresAt());
     }
 
+    /** Devuelve la invitación emitida la primera vez; vacío si la organización de esa solicitud ya existía. */
     @Transactional
-    public void handlePilotRequest(PilotRequestSubmitted request) {
+    public Optional<PilotInvitation> handlePilotRequest(PilotRequestSubmitted request) {
         if (request == null || request.requestId() == null) throw new IllegalArgumentException("Pilot request id is required");
         if (request.companyName() == null || request.companyName().isBlank()
                 || request.contactName() == null || request.contactName().isBlank()
                 || request.contactEmail() == null || request.contactEmail().isBlank()) {
             throw new IllegalArgumentException("Pilot request company and contact fields are required");
         }
-        if (organizations.findByAcquisitionRequestId(request.requestId()).isPresent()) return;
+        if (organizations.findByAcquisitionRequestId(request.requestId()).isPresent()) return Optional.empty();
         String email = normalizeEmail(request.contactEmail());
         if (users.existsByEmailIgnoreCase(email)) throw conflict("Pilot contact email is already registered");
         Instant now = clock.instant();
@@ -274,6 +276,7 @@ public class IamService {
         events.publishEvent(new IamEvents.UserRegistered(admin.getId(), organizationId, email, Role.ADMIN, now));
         events.publishEvent(new IamEvents.RoleAssigned(admin.getId(), organizationId, Role.ADMIN, now));
         events.publishEvent(new IamEvents.InitialAdminInvitationIssued(invitationId, email, invitationToken, expiresAt));
+        return Optional.of(new PilotInvitation(organizationId, invitationToken, expiresAt));
     }
 
     public IamResources.UserResource userResource(User user) {
@@ -336,4 +339,7 @@ public class IamService {
 
     public record AuthenticationResult(TokenProvider.IssuedAccessToken accessToken, String refreshToken,
                                        IamResources.UserResource user, IamResources.OrganizationResource organization) { }
+
+    /** Token de invitación en claro; solo existe en la respuesta de aprobación, la base guarda su hash. */
+    public record PilotInvitation(UUID organizationId, String invitationToken, Instant expiresAt) { }
 }
