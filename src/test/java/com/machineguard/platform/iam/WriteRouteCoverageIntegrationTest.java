@@ -18,7 +18,7 @@ class WriteRouteCoverageIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired @Qualifier("requestMappingHandlerMapping") RequestMappingHandlerMapping mappings;
     @Test void everyApplicationWriteIsGuardedOrAnExplicitCredentialBoundary() throws Exception {
-        Set<String> publicObserved=new HashSet<>(),gatewayObserved=new HashSet<>();int guarded=0;
+        Set<String> publicObserved=new HashSet<>(),gatewayObserved=new HashSet<>(),operatorObserved=new HashSet<>();int guarded=0;
         for(var entry:mappings.getHandlerMethods().entrySet()) {
             if(!entry.getValue().getBeanType().getPackageName().startsWith("com.machineguard.platform"))continue;
             var mapping=entry.getKey();assertFalse(mapping.getMethodsCondition().getMethods().isEmpty(),"Declare HTTP methods explicitly");
@@ -26,6 +26,14 @@ class WriteRouteCoverageIntegrationTest {
                 if(Set.of("GET","HEAD","OPTIONS").contains(method.name()))continue;
                 if("POST".equals(method.name()) && WriteSessionPolicy.PUBLIC_POSTS.contains(path))publicObserved.add(path);
                 else if("POST".equals(method.name()) && WriteSessionPolicy.GATEWAY_POSTS.contains(path))gatewayObserved.add(path);
+                else if("POST".equals(method.name()) && WriteSessionPolicy.isOperatorDecision(path)) {
+                    // Operator routes need X-Operator-Key (404 while disabled); the key itself is tested in PilotOperatorApiIntegrationTest.
+                    operatorObserved.add(path);
+                    String concrete=path.replaceAll("\\{[^}]+}","00000000-0000-0000-0000-000000000001");
+                    int status=mvc.perform(request(org.springframework.http.HttpMethod.valueOf(method.name()),concrete))
+                        .andReturn().getResponse().getStatus();
+                    assertTrue(status==401||status==404,method+" "+path+" returned "+status);guarded++;
+                }
                 else {
                     assertTrue(WriteSessionPolicy.requiresHumanSession(method.name(),path),method+" "+path);
                     String concrete=path.replaceAll("\\{[^}]+}","00000000-0000-0000-0000-000000000001");
@@ -35,6 +43,7 @@ class WriteRouteCoverageIntegrationTest {
             }
         }
         assertEquals(WriteSessionPolicy.PUBLIC_POSTS,publicObserved);assertEquals(WriteSessionPolicy.GATEWAY_POSTS,gatewayObserved);
+        assertEquals(Set.of("/api/v1/operator/pilot-requests/{id}/approve","/api/v1/operator/pilot-requests/{id}/reject"),operatorObserved);
         assertTrue(guarded>=15);assertTrue(WriteSessionPolicy.requiresHumanSession("POST","/new-route"));
     }
 }
