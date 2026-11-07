@@ -70,13 +70,9 @@ Restauración: una lectura normal inicial no genera evento. Tampoco lo generan l
 
 ## Pruebas y verificación
 
-La suite previa pasó con 34 pruebas. Después de implementar, `mvn clean test` pasó con **69 pruebas: 34 existentes y 35 nuevas**, sin fallos, errores ni pruebas omitidas. Se agregan pruebas de dominio e integración con MockMvc, JWT real y una base H2 PostgreSQL independiente con **las migraciones reales**. El aislamiento evita interferir con el test existente de Traceability, que recrea una tabla simplificada de measurements.
-
 Cobertura: rango inclusivo, precisión numérica, umbral inválido/faltante, tiempos, persistencia sin eventos normales, desviación, desviaciones sucesivas/pico sin excursiones duplicadas, restauración única, independencia de variables, varios puntos, backfill, timestamp repetido, tenant/headers falsificados, integridad punto/sensor, estados inactivos, autenticación/permisos, REST Resources/Location, proyección de zonas, historial inclusivo/paginado, concurrencia, rollback de consumidor, OpenAPI y lectura del historial desde Traceability.
 
 Un test de Hibernate registra únicamente las cinco entidades Environmental Monitoring y valida sus mappings contra V1 sin modificar el esquema. La validación global de todas las entidades detectó una diferencia previa en Traceability (`Excursion.peakValue` double frente a NUMERIC en V4), que se dejó intacta. La configuración de aplicación sigue `ddl-auto: none`.
-
-`mvn clean package` se verificó en la primera implementación con 69 pruebas. Esta revisión de infraestructura pasó `mvn clean test` con **71 pruebas, 0 fallos, 0 errores y 0 omitidas** (34 existentes y 37 de Environmental Monitoring). Se agregaron dos pruebas: wiring único de los cinco contracts/adapters y filtrado por punto con desplazamiento de página a través del port de historial.
 
 Comandos requeridos, con Java 21/Maven:
 
@@ -85,9 +81,7 @@ mvn clean test
 mvn clean package
 ```
 
-En esta máquina Maven se preparó temporalmente fuera del repo. Para confiar en el almacén de certificados de Windows durante la descarga se usó `MAVEN_OPTS=-Djavax.net.ssl.trustStoreType=Windows-ROOT -Djavax.net.ssl.trustStore=NONE`; no se desactivó TLS.
-
-## Auditoría semántica de publicación de eventos
+## Publicación de eventos
 
 Environmental Monitoring produce DeviationDetected y SafeRangeRestored. No consume eventos de negocio externos; por ello no necesita `application/eventhandlers`. Traceability sí los necesita porque consume desviaciones, restauraciones e incidentes resueltos. Su `application/ports` abstrae la lectura de historial; Environmental Monitoring ya dispone de ports de persistencia en `domain/repositories`, que no se duplican.
 
@@ -99,9 +93,7 @@ Persiste una dependencia técnica del puente de compatibilidad hacia el contrato
 
 Las pruebas del refactor verifican que Spring inyecta una sola implementación del port de eventos, que el command service no recibe ApplicationEventPublisher ni tipos de Traceability, y que el publisher entrega los dos eventos completos sin reemplazarlos por contratos del consumidor. Se conservan las pruebas de excursiones, restauración, concurrencia y rollback transaccional.
 
-La primera ejecución de esta auditoría aprobó las 40 pruebas de Environmental Monitoring y detectó una prueba intermitente previa en IAM (`loginNormalizesEmailAndTraceabilityIgnoresCallerSuppliedIdentityHeaders`): reemplaza el último carácter de la firma Base64URL, pero `A` → `B` puede conservar exactamente los bytes decodificados. Se comprobó esa equivalencia y no se modificó IAM ni su prueba dentro del refactor. Se repitió la suite completa: **`mvn clean test` terminó con BUILD SUCCESS, 74 pruebas, 0 fallos, 0 errores y 0 omitidas**. Son 34 pruebas existentes y 40 de Environmental Monitoring; este refactor agregó tres pruebas.
-
-No se agregó `infrastructure/config`: Spring ya registra el publisher y el puente mediante `@Component`, y reutiliza el bus, Clock y transaction manager existentes. Se eliminó la antigua carpeta application/integration al quedar vacía. Los adapters JPA siguen en infraestructura y no cambiaron migraciones, endpoints, datos ni semántica de eventos.
+No se agregó `infrastructure/config`: Spring ya registra el publisher y el puente mediante `@Component`, y reutiliza el bus, Clock y transaction manager existentes. Los adapters JPA siguen en infraestructura y no cambiaron migraciones, endpoints, datos ni semántica de eventos.
 
 ## Wiring de persistencia
 
@@ -119,79 +111,8 @@ No se agregó `infrastructure/config`: Spring ya registra el publisher y el puen
 
 `MeasurementRepository.save` se implementa con `saveAndFlush`: la lectura tiene UUID y está disponible para los consumidores síncronos antes de publicar eventos. El sensor se actualiza mediante `SensorNodeRepository.save` explícitamente. La persistencia mantiene la transacción de la aplicación y los mismos eventos; los tests existentes de concurrencia y rollback verifican que esta separación no rompe el comportamiento.
 
-## Archivos creados
+## Estructura
 
-```text
-src/main/java/com/machineguard/platform/environmentalmonitoring/
-|-- application/
-|   |-- commandservices/
-|   |   `-- RegisterMeasurementCommandService.java
-|   |-- ports/
-|   |   `-- EnvironmentalMonitoringEventPublisher.java
-|   `-- queryservices/
-|       `-- EnvironmentalMonitoringQueryService.java
-|-- domain/
-|   |-- commands/
-|   |   `-- RegisterMeasurementCommand.java
-|   |-- events/
-|   |   `-- EnvironmentalMonitoringEvents.java
-|   |-- exceptions/
-|   |   |-- EnvironmentalMonitoringNotFoundException.java
-|   |   `-- EnvironmentalMonitoringRuleException.java
-|   |-- model/
-|   |   |-- EnvironmentalVariable.java
-|   |   |-- Measurement.java
-|   |   |-- MeasurementHistoryPage.java
-|   |   |-- MonitoringPoint.java
-|   |   |-- MonitoringPointStatus.java
-|   |   |-- MonitoringZone.java
-|   |   |-- MonitoringZoneStatus.java
-|   |   |-- NumericValue.java
-|   |   |-- SensorNode.java
-|   |   |-- SensorNodeStatus.java
-|   |   `-- Threshold.java
-|   |-- queries/
-|   |   `-- EnvironmentalMonitoringQueries.java
-|   |-- repositories/
-|   |   |-- MeasurementRepository.java
-|   |   |-- MonitoringPointRepository.java
-|   |   |-- MonitoringZoneRepository.java
-|   |   |-- SensorNodeRepository.java
-|   |   `-- ThresholdRepository.java
-|   `-- services/
-|       `-- ZoneConditionService.java
-|-- infrastructure/
-|   |-- integration/
-|   |   |-- SpringEnvironmentalMonitoringEventPublisher.java
-|   |   `-- TraceabilityEventAdapter.java
-|   `-- persistence/
-|       |-- adapter/
-|       |   |-- JpaMeasurementRepositoryAdapter.java
-|       |   |-- JpaMonitoringPointRepositoryAdapter.java
-|       |   |-- JpaMonitoringZoneRepositoryAdapter.java
-|       |   |-- JpaSensorNodeRepositoryAdapter.java
-|       |   `-- JpaThresholdRepositoryAdapter.java
-|       `-- repository/
-|           |-- MeasurementJpaRepository.java
-|           |-- MonitoringPointJpaRepository.java
-|           |-- MonitoringZoneJpaRepository.java
-|           |-- SensorNodeJpaRepository.java
-|           `-- ThresholdJpaRepository.java
-`-- interfaces/
-    `-- rest/
-        |-- assemblers/
-        |   `-- EnvironmentalMonitoringResourceAssembler.java
-        |-- resources/
-        |   `-- EnvironmentalMonitoringResources.java
-        |-- EnvironmentalMonitoringController.java
-        `-- EnvironmentalMonitoringExceptionHandler.java
-
-src/test/java/com/machineguard/platform/environmentalmonitoring/
-|-- EnvironmentalMonitoringApiIntegrationTest.java
-|-- EnvironmentalMonitoringDomainTest.java
-`-- SpringEnvironmentalMonitoringEventPublisherTest.java
-
-docs/environmental-monitoring.md
-```
-
-Archivo existente modificado: `README.md`. IAM, Traceability, V1/V2/V4/V5, pom.xml y pruebas existentes permanecen sin cambios.
+El código está en `src/main/java/com/machineguard/platform/environmentalmonitoring/`, con las capas
+`application`, `domain`, `infrastructure` e `interfaces`. Las pruebas están en
+`src/test/java/com/machineguard/platform/environmentalmonitoring/`.
