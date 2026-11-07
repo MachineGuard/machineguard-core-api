@@ -35,7 +35,7 @@ $base = $BaseUrl.TrimEnd('/') + '/api/v1/operator/pilot-requests'
 
 try {
     switch ($Action) {
-        'list'    { $result = Invoke-RestMethod -Method Get -Uri "$base?status=$Status" -Headers $headers }
+        'list'    { $result = Invoke-RestMethod -Method Get -Uri "${base}?status=$Status" -Headers $headers }
         'approve' { $result = Invoke-RestMethod -Method Post -Uri "$base/$Id/approve" -Headers $headers }
         'reject'  { $result = Invoke-RestMethod -Method Post -Uri "$base/$Id/reject" -Headers $headers }
     }
