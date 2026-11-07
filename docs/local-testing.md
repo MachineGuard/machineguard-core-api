@@ -41,7 +41,7 @@ interfaz Swagger no están disponibles.
 |---|---|
 | Web y login | http://127.0.0.1:18420/login |
 | API Core | http://127.0.0.1:18090 |
-| Swagger Core (solo si se habilita) | http://127.0.0.1:18090/swagger-ui/index.html |
+| Swagger Core (solo si se habilita) | http://127.0.0.1:18090/swagger-ui.html |
 | PostgreSQL privado | 127.0.0.1:55441 |
 
 Web usa el proxy local `/api/v1`; no hay que introducir tokens ni cabeceras de
