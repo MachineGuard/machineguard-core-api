@@ -15,7 +15,8 @@ public interface AlertJpaRepository extends JpaRepository<Alert, UUID> {
     @Query("""
             select new com.machineguard.platform.alertincident.domain.model.AlertSummary(
                 a.id, a.incidentId, i.monitoringZoneId, a.severity, a.status, a.message,
-                a.raisedAt, a.acknowledgedAt, a.escalatedAt, i.historical)
+                a.raisedAt, a.acknowledgedAt, a.escalatedAt, i.historical,
+                i.environmentalVariable, a.measuredValue, a.minimumValue, a.maximumValue)
             from Alert a join Incident i on i.id = a.incidentId
             where i.organizationId = :organizationId
               and (:monitoringZoneId is null or i.monitoringZoneId = :monitoringZoneId)
@@ -27,7 +28,8 @@ public interface AlertJpaRepository extends JpaRepository<Alert, UUID> {
     @Query("""
             select new com.machineguard.platform.alertincident.domain.model.AlertSummary(
                 a.id, a.incidentId, i.monitoringZoneId, a.severity, a.status, a.message,
-                a.raisedAt, a.acknowledgedAt, a.escalatedAt, i.historical)
+                a.raisedAt, a.acknowledgedAt, a.escalatedAt, i.historical,
+                i.environmentalVariable, a.measuredValue, a.minimumValue, a.maximumValue)
             from Alert a join Incident i on i.id = a.incidentId
             where a.id = :id and i.organizationId = :organizationId
             """)
