@@ -10,6 +10,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Objects;
@@ -56,6 +57,16 @@ public class Alert {
     @Column(name = "closed_at")
     private Instant closedAt;
 
+    /** Lectura que origino la alerta y rango seguro vigente; nulos en alertas anteriores a V12. */
+    @Column(name = "measured_value", precision = 6, scale = 2, updatable = false)
+    private BigDecimal measuredValue;
+
+    @Column(name = "minimum_value", precision = 6, scale = 2, updatable = false)
+    private BigDecimal minimumValue;
+
+    @Column(name = "maximum_value", precision = 6, scale = 2, updatable = false)
+    private BigDecimal maximumValue;
+
     protected Alert() {
     }
 
@@ -69,6 +80,16 @@ public class Alert {
         alert.message = message;
         alert.status = AlertStatus.PENDING;
         alert.raisedAt = Objects.requireNonNull(raisedAt);
+        return alert;
+    }
+
+    /** Igual que {@link #raise(UUID, AlertSeverity, String, Instant)}, conservando la lectura y su rango seguro. */
+    public static Alert raise(UUID incidentId, AlertSeverity severity, String message, Instant raisedAt,
+                              BigDecimal measuredValue, BigDecimal minimumValue, BigDecimal maximumValue) {
+        Alert alert = raise(incidentId, severity, message, raisedAt);
+        alert.measuredValue = Objects.requireNonNull(measuredValue);
+        alert.minimumValue = Objects.requireNonNull(minimumValue);
+        alert.maximumValue = Objects.requireNonNull(maximumValue);
         return alert;
     }
 
@@ -137,5 +158,17 @@ public class Alert {
 
     public Instant getClosedAt() {
         return closedAt;
+    }
+
+    public BigDecimal getMeasuredValue() {
+        return measuredValue;
+    }
+
+    public BigDecimal getMinimumValue() {
+        return minimumValue;
+    }
+
+    public BigDecimal getMaximumValue() {
+        return maximumValue;
     }
 }

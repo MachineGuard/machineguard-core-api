@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -34,7 +35,9 @@ public final class AlertIncidentResources {
     }
 
     public record AlertResource(UUID id, UUID incidentId, UUID monitoringZoneId, String severity, String status,
-                                String message, Instant raisedAt, Instant acknowledgedAt, Instant escalatedAt,boolean historical) {
+                                String message, Instant raisedAt, Instant acknowledgedAt, Instant escalatedAt,boolean historical,
+                                String environmentalVariable, BigDecimal measuredValue, BigDecimal minimumValue,
+                                BigDecimal maximumValue) {
     }
 
     public record AcknowledgementResource(UUID acknowledgedBy, Instant acknowledgedAt, String note) {

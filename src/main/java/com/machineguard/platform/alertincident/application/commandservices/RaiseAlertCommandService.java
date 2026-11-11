@@ -75,7 +75,8 @@ public class RaiseAlertCommandService {
             if (command.historical()) message="Desviacion historica: "+message;
             alert = alerts.save(Alert.raise(incident.getId(),
                     policy.classify(command.measuredValue(), command.minimumValue(), command.maximumValue()),
-                    message, command.detectedAt()));
+                    message, command.detectedAt(), command.measuredValue(), command.minimumValue(),
+                    command.maximumValue()));
             events.publish(new AlertRaised(alert.getId(), incident.getId(), incident.getOrganizationId(),
                     incident.getMonitoringZoneId(), alert.getSeverity(), alert.getRaisedAt()));
         }

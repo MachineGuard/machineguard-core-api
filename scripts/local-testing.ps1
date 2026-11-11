@@ -8,7 +8,9 @@ param(
     [string]$MavenCommand = '',
     [ValidateRange(1024, 65535)][int]$ApiPort = 18090,
     [ValidateRange(1024, 65535)][int]$WebPort = 18420,
-    [ValidateRange(1024, 65535)][int]$DatabasePort = 55441
+    [ValidateRange(1024, 65535)][int]$DatabasePort = 55441,
+    # 0.0.0.0 exposes Core to the local network so a physical phone can reach it during a demo.
+    [ValidateSet('127.0.0.1', '0.0.0.0')][string]$ListenAddress = '127.0.0.1'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -19,6 +21,7 @@ $stateFile = Join-Path $runtime 'state.json'
 $secretFile = Join-Path $runtime 'credentials.clixml'
 $databaseName = 'machineguard_local_testing'
 $databaseUser = 'mg_local_testing'
+$demoEmail = 'demo@machineguard.com'
 
 function Read-State {
     if (Test-Path -LiteralPath $stateFile) { return Get-Content -LiteralPath $stateFile -Raw | ConvertFrom-Json -AsHashtable }
@@ -54,6 +57,13 @@ function Stop-Environment($State) {
 }
 function New-TestSecret {
     return ConvertTo-SecureString ([Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(48))) -AsPlainText -Force
+}
+function New-DemoSecret {
+    # Readable and easy to type on a phone: four groups of four characters without look-alikes (19 characters).
+    $alphabet = 'abcdefghjkmnpqrstuvwxyz23456789'
+    $chars = [Security.Cryptography.RandomNumberGenerator]::GetItems[char]($alphabet.ToCharArray(), 16)
+    $text = (0..3 | ForEach-Object { -join $chars[($_ * 4)..($_ * 4 + 3)] }) -join '-'
+    return ConvertTo-SecureString $text -AsPlainText -Force
 }
 function Reveal($Secret) { return [Net.NetworkCredential]::new('', $Secret).Password }
 function Start-Background([string]$File, [string[]]$Arguments, [string]$Directory, [string]$Name) {
@@ -108,6 +118,7 @@ if ($Action -eq 'Credentials') {
     # Explicit action for the person testing. Do not copy this output to logs, Git or screenshots.
     [pscustomobject]@{ Role = 'ADMIN'; Email = 'admin@testing.machineguard.invalid'; Password = (Reveal $secrets.admin) }
     [pscustomobject]@{ Role = 'VIEWER'; Email = 'viewer@testing.machineguard.invalid'; Password = (Reveal $secrets.viewer) }
+    if ($secrets.demo) { [pscustomobject]@{ Role = 'ADMIN (demo)'; Email = $demoEmail; Password = (Reveal $secrets.demo) } }
     return
 }
 if ($Action -eq 'Down') { Stop-Environment $state; Write-Output 'Testing services stopped. Database and credentials preserved.'; return }
@@ -151,10 +162,15 @@ if ($state -and ($state.coreRoot -ne $coreRoot -or $state.databaseDirectory -ne 
 }
 if (-not (Test-Path -LiteralPath $secretFile)) {
     if (Test-Path (Join-Path $databaseDirectory 'PG_VERSION')) { throw 'Database exists but its testing credentials are missing. No reset was performed.' }
-    @{ admin = (New-TestSecret); viewer = (New-TestSecret); database = (New-TestSecret); jwt = (New-TestSecret) } | Export-Clixml -LiteralPath $secretFile
+    @{ admin = (New-TestSecret); viewer = (New-TestSecret); demo = (New-DemoSecret); database = (New-TestSecret); jwt = (New-TestSecret) } | Export-Clixml -LiteralPath $secretFile
 }
 # Windows DPAPI encrypts these SecureStrings for this Windows account and machine.
 $secrets = Import-Clixml -LiteralPath $secretFile
+if (-not $secrets.demo) {
+    # Runtimes created before the demo account get its secret added without touching the others.
+    $secrets.demo = New-DemoSecret
+    $secrets | Export-Clixml -LiteralPath $secretFile
+}
 $state = @{ coreRoot = $coreRoot; webRoot = $webRoot; databaseDirectory = $databaseDirectory; postgresBin = $PostgresBin
     apiPort = $ApiPort; webPort = $WebPort; databasePort = $DatabasePort; api = $null; web = $null; postgres = $null }
 Save-State $state
@@ -212,7 +228,7 @@ try {
     Set-ChildEnvironment 'IAM_BOOTSTRAP_ADMIN_EMAIL' 'admin@testing.machineguard.invalid'
     Set-ChildEnvironment 'IAM_BOOTSTRAP_ADMIN_PASSWORD' (Reveal $secrets.admin)
     $jar = Join-Path $coreRoot 'target/core-api-0.1.0-SNAPSHOT.jar'
-    $state.api = Record-Process (Start-Background $java @('-jar', $jar, "--server.port=$ApiPort", '--server.address=127.0.0.1') $coreRoot 'core')
+    $state.api = Record-Process (Start-Background $java @('-jar', $jar, "--server.port=$ApiPort", "--server.address=$ListenAddress") $coreRoot 'core')
     Save-State $state
     foreach ($entry in $savedEnvironment.GetEnumerator()) { [Environment]::SetEnvironmentVariable($entry.Key, $entry.Value, 'Process') }
     # A protected API response indicates that the HTTP/security stack is available;
@@ -225,6 +241,9 @@ try {
     if ($viewerStatus -notin @(201, 409)) { throw "Could not provision testing viewer (HTTP $viewerStatus)." }
     $viewer = Invoke-RestMethod "http://127.0.0.1:$ApiPort/api/v1/auth/login" -Method Post -ContentType application/json -Body (@{email='viewer@testing.machineguard.invalid'; password=(Reveal $secrets.viewer)} | ConvertTo-Json)
     if ($viewer.user.role -ne 'VIEWER' -or $viewer.organization.id -ne $login.organization.id) { throw 'Testing viewer has unexpected access.' }
+    # Demo account for the Mobile app and presentations; its generated password stays in credentials.clixml.
+    Invoke-RestMethod $usersUrl -Headers $headers -Method Post -ContentType application/json -SkipHttpErrorCheck -StatusCodeVariable demoStatus -Body (@{email=$demoEmail; password=(Reveal $secrets.demo); fullName='Demo MachineGuard'; role='ADMIN'} | ConvertTo-Json) | Out-Null
+    if ($demoStatus -notin @(201, 409)) { throw "Could not provision demo account (HTTP $demoStatus)." }
     @{ '/api/**' = @{ target="http://127.0.0.1:$ApiPort"; secure=$false; changeOrigin=$true } } | ConvertTo-Json | Set-Content (Join-Path $runtime 'proxy.json')
     $cli = Join-Path $webRoot 'node_modules/@angular/cli/bin/ng.js'
     $state.web = Record-Process (Start-Background $node @($cli, 'serve', '--host', '127.0.0.1', '--port', "$WebPort", '--proxy-config', (Join-Path $runtime 'proxy.json')) $webRoot 'web')

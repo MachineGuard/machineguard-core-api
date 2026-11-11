@@ -25,12 +25,16 @@ public class AlertIncidentResourceAssembler {
 
     public AlertResource alert(Alert a, Incident incident) {
         return new AlertResource(a.getId(), a.getIncidentId(), incident.getMonitoringZoneId(), a.getSeverity().name(),
-                a.getStatus().name(), a.getMessage(), a.getRaisedAt(), a.getAcknowledgedAt(), a.getEscalatedAt(),incident.isHistorical());
+                a.getStatus().name(), a.getMessage(), a.getRaisedAt(), a.getAcknowledgedAt(), a.getEscalatedAt(),incident.isHistorical(),
+                incident.getEnvironmentalVariable() == null ? null : incident.getEnvironmentalVariable().name(),
+                a.getMeasuredValue(), a.getMinimumValue(), a.getMaximumValue());
     }
 
     public AlertResource alert(AlertSummary a) {
         return new AlertResource(a.id(), a.incidentId(), a.monitoringZoneId(), a.severity().name(),
-                a.status().name(), a.message(), a.raisedAt(), a.acknowledgedAt(), a.escalatedAt(),a.historical());
+                a.status().name(), a.message(), a.raisedAt(), a.acknowledgedAt(), a.escalatedAt(),a.historical(),
+                a.environmentalVariable() == null ? null : a.environmentalVariable().name(),
+                a.measuredValue(), a.minimumValue(), a.maximumValue());
     }
 
     public CorrectiveActionResource correctiveAction(CorrectiveAction c) {

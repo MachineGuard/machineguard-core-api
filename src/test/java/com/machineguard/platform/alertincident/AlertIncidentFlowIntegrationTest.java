@@ -127,6 +127,13 @@ class AlertIncidentFlowIntegrationTest {
         assertEquals(origin.get("id").asText(), incidents().get(0).get("originMeasurementId").asText());
         assertEquals(zone.toString(), send(get("/api/v1/alerts/" + alert), viewer, null, 200)
                 .get("monitoringZoneId").asText());
+        JsonNode reading = send(get("/api/v1/alerts/" + alert), viewer, null, 200);
+        assertEquals("TEMPERATURE", reading.get("environmentalVariable").asText());
+        assertEquals(0, new BigDecimal("11").compareTo(reading.get("measuredValue").decimalValue()));
+        assertTrue(reading.get("minimumValue").decimalValue().compareTo(reading.get("maximumValue").decimalValue()) < 0);
+        JsonNode listed = send(get("/api/v1/alerts"), admin, null, 200).get(0);
+        assertEquals("TEMPERATURE", listed.get("environmentalVariable").asText());
+        assertEquals(0, new BigDecimal("11").compareTo(listed.get("measuredValue").decimalValue()));
         send(post(resolveUrl(incident)), admin, null, 409);
         JsonNode acknowledgement = send(post("/api/v1/alerts/" + alert + "/acknowledgements"), admin,
                 Map.of("note", "Attending", "acknowledgedBy", new UUID(0, 999)), 201);
