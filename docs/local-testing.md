@@ -58,6 +58,26 @@ credencial de PostgreSQL y clave JWT se conservan como SecureString cifrados
 mediante Windows DPAPI en
 `%LOCALAPPDATA%/MachineGuard/local-testing/credentials.clixml`; los puede descifrar
 el mismo usuario en la misma PC. No son credenciales para usar en producción.
+
+También se crea la cuenta ADMIN `demo@machineguard.com` para la app móvil y las
+presentaciones. Su contraseña se genera al primer `Up` (cuatro grupos de cuatro
+caracteres, fácil de escribir en un celular) y aparece en `-Action Credentials`.
+Un runtime anterior la recibe en el siguiente `Up` sin cambiar las otras.
+
+## Demo con un celular físico
+
+Por defecto Core solo escucha en `127.0.0.1`. Para que un celular en la misma red
+Wi-Fi llegue a la laptop:
+
+```powershell
+pwsh -File ./scripts/local-testing.ps1 -Action Up -ListenAddress 0.0.0.0
+```
+
+Compilar la app con la IP privada de la laptop (`ipconfig`, por ejemplo
+`192.168.1.20`): `./gradlew assembleDebug -PapiBaseUrl=http://192.168.1.20:18090`.
+Windows puede pedir permitir Java en la red privada; aceptarlo solo para redes
+privadas. Usar `0.0.0.0` solo en una red de confianza y volver a `Up` normal
+después de la demo.
 Durante la inicialización de PostgreSQL se crea un archivo de contraseña
 temporal legible solo por tu usuario; se elimina al finalizar ese paso, incluso
 si falla. No se conserva la contraseña en un `.env` del repositorio.
