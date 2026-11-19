@@ -1,6 +1,7 @@
 package com.machineguard.platform.customeracquisition.infrastructure.web;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpServletRequest;
 
 import java.util.List;
 
@@ -23,5 +24,21 @@ class PilotRequestCorsConfigurationTest {
                 "https://landing.example.test/path", "ftp://landing.example.test", "landing.example.test")) {
             assertThrows(IllegalStateException.class, () -> PilotRequestCorsConfiguration.parse(unsafe), unsafe);
         }
+    }
+
+    @Test void webOriginsGetApiCorsWhileLandingKeepsPostOnlyPilotRoute() {
+        var source = new PilotRequestCorsConfiguration().pilotRequestCorsSource(
+                "https://landing.example.test", "https://web.example.test");
+        var api = source.getCorsConfiguration(new MockHttpServletRequest("GET", "/api/v1/zones"));
+        assertNotNull(api);
+        assertEquals(List.of("https://web.example.test"), api.getAllowedOrigins());
+        assertTrue(api.getAllowedHeaders().contains("Authorization"));
+        var pilot = source.getCorsConfiguration(new MockHttpServletRequest("POST", "/api/v1/pilot-requests"));
+        assertEquals(List.of("POST"), pilot.getAllowedMethods());
+    }
+
+    @Test void emptyWebOriginsLeaveApiWithoutCors() {
+        var source = new PilotRequestCorsConfiguration().pilotRequestCorsSource("", "");
+        assertNull(source.getCorsConfiguration(new MockHttpServletRequest("GET", "/api/v1/zones")));
     }
 }
